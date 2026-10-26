@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/logo.png" alt="Harness logo" width="180" />
+
 # Harness
 
 **Give your AI coding agents your engineering experience.**
@@ -16,6 +18,7 @@ A lightweight, local-first [Model Context Protocol (MCP)](https://modelcontextpr
 [How It Works](#how-it-works) •
 [Quick Start](#quick-start) •
 [Configuration](#configuration) •
+[Agent Setup](#using-harness-with-ai-agents) •
 [Data Model](#data-model) •
 [Development](#development) •
 [Roadmap](#roadmap) •
@@ -40,6 +43,19 @@ Most AI coding assistants start from zero on every prompt. Harness gives them yo
   - [Run Locally](#run-locally)
   - [Run with Docker Compose](#run-with-docker-compose)
 - [Configuration](#configuration)
+- [Using Harness with AI Agents](#using-harness-with-ai-agents)
+  - [Install the Binary](#install-the-binary)
+  - [Transports](#transports)
+  - [Claude Code](#claude-code)
+  - [Claude Desktop](#claude-desktop)
+  - [Antigravity](#antigravity)
+  - [Gemini CLI](#gemini-cli)
+  - [Cursor](#cursor)
+  - [VS Code (GitHub Copilot)](#vs-code-github-copilot)
+  - [Windsurf](#windsurf)
+  - [OpenAI Codex CLI](#openai-codex-cli)
+  - [Running Harness in Docker for stdio Clients](#running-harness-in-docker-for-stdio-clients)
+  - [Teach Your Agent to Use Harness](#teach-your-agent-to-use-harness)
 - [Data Model](#data-model)
 - [Project Structure](#project-structure)
 - [Development](#development)
@@ -184,7 +200,7 @@ Each setting accepts a namespaced `HARNESS_*` variable, which takes precedence, 
 | `HARNESS_DB_PATH` | `DB_PATH` | `./harness.db` | Path to the SQLite database file. |
 | `HARNESS_LOG_LEVEL` | `LOG_LEVEL` | `info` | One of `debug`, `info`, `warn`/`warning`, `error`, or any value `slog.Level` accepts (e.g. `INFO+2`). |
 | `HARNESS_PORT` | `PORT` | `9090` | Port the server listens on. |
-| `HARNESS_TRANSPORT` | `TRANSPORT` | `sse` | MCP transport mode. |
+| `HARNESS_TRANSPORT` | `TRANSPORT` | `sse` | MCP transport mode. Planned values are `stdio` and `http` (Streamable HTTP). See [Transports](#transports). |
 
 Example `.env`:
 
@@ -203,6 +219,288 @@ Every connection is opened with:
 - `foreign_keys(1)`: referential integrity is enforced.
 - `busy_timeout(5000)`: waits up to 5s on a lock instead of failing immediately.
 - A single open connection (`SetMaxOpenConns(1)`), which avoids `SQLITE_BUSY` contention between writers.
+
+## Using Harness with AI Agents
+
+Harness works with any MCP-compatible client. You can connect a client in one of two ways:
+
+- **Local process (stdio):** the client starts the `harness` binary itself and talks to it over stdin/stdout. This is the recommended setup for local-first use, and every major client supports it.
+- **Network service (HTTP):** you run Harness once (for example with `make docker-up`), and one or more clients connect to `http://localhost:9090`. Use this when several agents or machines share the same memory.
+
+> [!WARNING]
+> The MCP server layer is still [in development](#project-status). The configurations below show the **intended** setup. The endpoint path (`/mcp`) and the transport values may change before `v1.0.0`.
+
+### Install the Binary
+
+```sh
+git clone https://github.com/Ayobami6/harness.git
+cd harness
+mkdir -p ~/.local/bin ~/.harness
+CGO_ENABLED=0 go build -ldflags="-s -w" -o ~/.local/bin/harness ./cmd/main.go
+
+# Create the database once
+make migrate-up DB_PATH=$HOME/.harness/harness.db
+```
+
+Make sure `~/.local/bin` is on your `PATH`. The examples below use `/Users/you/.harness/harness.db` as the database path. MCP clients don't expand `~`, so **use absolute paths** in their config files.
+
+> [!TIP]
+> Point every client at the **same** database file. Then a bug fix you record from Claude Code is available to Antigravity, Cursor, or any other agent you use.
+
+### Transports
+
+| Transport | `HARNESS_TRANSPORT` | Endpoint | Best for |
+|---|---|---|---|
+| stdio | `stdio` | stdin/stdout | A single developer, with the client managing the process |
+| Streamable HTTP | `http` | `http://localhost:9090/mcp` | A shared or long-running server (Docker), multiple clients |
+
+> [!NOTE]
+> Some clients, including Antigravity, only support the modern **Streamable HTTP** transport and not the legacy HTTP+SSE transport. If a client can't connect over HTTP, use the stdio setup, or bridge with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote): `npx mcp-remote http://localhost:9090/mcp`.
+
+### Claude Code
+
+Using the CLI (stdio):
+
+```sh
+claude mcp add harness \
+  --scope user \
+  --env HARNESS_TRANSPORT=stdio \
+  --env HARNESS_DB_PATH=$HOME/.harness/harness.db \
+  -- harness
+```
+
+Using the CLI (HTTP, with Harness already running):
+
+```sh
+claude mcp add --transport http --scope user harness http://localhost:9090/mcp
+```
+
+To share the setup with your team, commit a project-scoped `.mcp.json` at the repository root:
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "harness",
+      "env": {
+        "HARNESS_TRANSPORT": "stdio",
+        "HARNESS_DB_PATH": "/Users/you/.harness/harness.db"
+      }
+    }
+  }
+}
+```
+
+Check the connection with `claude mcp list`, or run `/mcp` inside a session.
+
+### Claude Desktop
+
+Edit `claude_desktop_config.json`. You can open it from **Settings → Developer → Edit Config**.
+
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "/Users/you/.local/bin/harness",
+      "env": {
+        "HARNESS_TRANSPORT": "stdio",
+        "HARNESS_DB_PATH": "/Users/you/.harness/harness.db"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop afterwards. The Harness tools will appear in the tools (🔨) menu.
+
+### Antigravity
+
+Add Harness to `~/.gemini/config/mcp_config.json`. You can also open it from **Additional Options (…) → MCP Servers**.
+
+stdio:
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "/Users/you/.local/bin/harness",
+      "env": {
+        "HARNESS_TRANSPORT": "stdio",
+        "HARNESS_DB_PATH": "/Users/you/.harness/harness.db"
+      }
+    }
+  }
+}
+```
+
+Streamable HTTP:
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "url": "http://localhost:9090/mcp"
+    }
+  }
+}
+```
+
+Once connected, Antigravity adds the Harness tools to the agent's toolset automatically. You can check them under **MCP Servers** in the UI.
+
+### Gemini CLI
+
+Add to `~/.gemini/settings.json` (global) or `.gemini/settings.json` (per project):
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "harness",
+      "env": {
+        "HARNESS_TRANSPORT": "stdio",
+        "HARNESS_DB_PATH": "/Users/you/.harness/harness.db"
+      }
+    }
+  }
+}
+```
+
+For HTTP, replace the entry with `{ "httpUrl": "http://localhost:9090/mcp" }`. Run `/mcp` in a session to check the connection.
+
+### Cursor
+
+Add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per project):
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "harness",
+      "env": {
+        "HARNESS_TRANSPORT": "stdio",
+        "HARNESS_DB_PATH": "/Users/you/.harness/harness.db"
+      }
+    }
+  }
+}
+```
+
+For HTTP, use `{ "url": "http://localhost:9090/mcp" }`.
+
+### VS Code (GitHub Copilot)
+
+Add to `.vscode/mcp.json` in your workspace. VS Code uses a top-level `servers` key:
+
+```json
+{
+  "servers": {
+    "harness": {
+      "type": "stdio",
+      "command": "harness",
+      "env": {
+        "HARNESS_TRANSPORT": "stdio",
+        "HARNESS_DB_PATH": "/Users/you/.harness/harness.db"
+      }
+    }
+  }
+}
+```
+
+For HTTP, use `{ "type": "http", "url": "http://localhost:9090/mcp" }`. Then open Copilot Chat in **Agent** mode and turn on the Harness tools.
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "/Users/you/.local/bin/harness",
+      "env": {
+        "HARNESS_TRANSPORT": "stdio",
+        "HARNESS_DB_PATH": "/Users/you/.harness/harness.db"
+      }
+    }
+  }
+}
+```
+
+For HTTP, use `{ "serverUrl": "http://localhost:9090/mcp" }`.
+
+### OpenAI Codex CLI
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.harness]
+command = "harness"
+env = { HARNESS_TRANSPORT = "stdio", HARNESS_DB_PATH = "/Users/you/.harness/harness.db" }
+```
+
+### Running Harness in Docker for stdio Clients
+
+If you'd rather not install Go, any stdio client can start Harness from the container image instead:
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-v", "harness_storage:/data",
+        "-e", "HARNESS_TRANSPORT=stdio",
+        "harness-harness"
+      ]
+    }
+  }
+}
+```
+
+`harness-harness` is the image name Docker Compose builds by default. Run `docker images` to check it.
+
+### Teach Your Agent to Use Harness
+
+Connecting the server makes the tools available. Adding a short rule to your agent's instructions file makes sure the agent actually uses them. Put the rule in `CLAUDE.md` (Claude Code), `GEMINI.md` (Antigravity / Gemini CLI), `AGENTS.md` (Codex and others), `.cursor/rules/` (Cursor), or `.github/copilot-instructions.md` (Copilot).
+
+```markdown
+## Harness Memory Protocol
+
+Before you plan or write code:
+1. Load this project's architectural profile from Harness and follow its rules strictly.
+2. Search Harness dev logs and incidents for the area you're changing. Don't repeat known failures.
+3. Load the feature context for the component you're touching, and respect its critical invariants.
+4. Prefer Harness code exemplars for the language and topic over generic patterns.
+
+After you finish a non-trivial change:
+5. Record a dev log in Harness: problem, solution, trade-offs, tags, and the git ref.
+6. If the change fixed a production bug, also record an incident with prevention rules.
+```
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant Agent as AI Agent
+    participant H as Harness (MCP)
+    participant DB as SQLite
+
+    Dev->>Agent: "Add idempotency to the payment webhook"
+    Agent->>H: get architectural profile (project)
+    H->>DB: SELECT architectural_profiles
+    Agent->>H: search dev logs / incidents ("webhook idempotency")
+    H->>DB: FTS5 MATCH, ranked
+    Agent->>H: get code exemplars (go, idempotency)
+    H-->>Agent: rules + past fixes + golden snippets
+    Agent->>Dev: Implementation aligned with your conventions
+    Agent->>H: record dev log (problem, solution, trade-offs)
+```
+
+> [!NOTE]
+> Tool names will be listed here when the [context tools](#roadmap) ship. Until then, the protocol above is written to describe what each step does rather than which tool it calls.
 
 ## Data Model
 
@@ -384,11 +682,12 @@ go test -race ./...
 - [x] Initial schema with FTS5-indexed dev logs
 - [x] sqlc query definitions for all domains
 - [ ] Generated repository layer and unit tests
-- [ ] MCP server with SSE and stdio transports
+- [ ] MCP server with stdio and Streamable HTTP transports
 - [ ] Context tools: search dev logs, fetch architectural profile, recall incidents, fetch feature context, fetch code exemplars
 - [ ] Ops tools: schema inspection, test running, failure diagnostics
 - [ ] `/healthz` endpoint and graceful shutdown (SIGTERM)
-- [ ] Client configuration guides (Claude Desktop, Cursor, VS Code, Antigravity, etc.)
+- [x] Client configuration guides (Claude Code, Claude Desktop, Antigravity, Gemini CLI, Cursor, VS Code, Windsurf, Codex)
+- [ ] One-command installer (`go install` / Homebrew)
 - [ ] Pre-built release binaries and container images
 
 ## Contributing
