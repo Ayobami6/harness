@@ -18,3 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `create_code_exemplar` and `get_code_exemplars` for language and topic golden snippets.
 - Wired MCP server and context tool module registration into `cmd/main.go`.
 
+### Changed
+- Configured Gemini PR review workflow to preserve complete review history by posting a new comment per review iteration with the commit SHA instead of editing previous comments.
+
