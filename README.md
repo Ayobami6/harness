@@ -46,6 +46,7 @@ Most AI coding assistants start from zero on every prompt. Harness gives them yo
 - [Using Harness with AI Agents](#using-harness-with-ai-agents)
   - [Install the Binary](#install-the-binary)
   - [Transports](#transports)
+  - [Run Harness as an HTTP Server](#run-harness-as-an-http-server)
   - [Claude Code](#claude-code)
   - [Claude Desktop](#claude-desktop)
   - [Antigravity](#antigravity)
@@ -54,6 +55,7 @@ Most AI coding assistants start from zero on every prompt. Harness gives them yo
   - [VS Code (GitHub Copilot)](#vs-code-github-copilot)
   - [Windsurf](#windsurf)
   - [OpenAI Codex CLI](#openai-codex-cli)
+  - [Quick Reference](#quick-reference)
   - [Running Harness in Docker for stdio Clients](#running-harness-in-docker-for-stdio-clients)
   - [Teach Your Agent to Use Harness](#teach-your-agent-to-use-harness)
 - [Data Model](#data-model)
@@ -255,11 +257,34 @@ Make sure `~/.local/bin` is on your `PATH`. The examples below use `/Users/you/.
 | Streamable HTTP | `http` | `http://localhost:9090/mcp` | A shared or long-running server (Docker), multiple clients |
 
 > [!NOTE]
-> Some clients, including Antigravity, only support the modern **Streamable HTTP** transport and not the legacy HTTP+SSE transport. If a client can't connect over HTTP, use the stdio setup, or bridge with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote): `npx mcp-remote http://localhost:9090/mcp`.
+> Harness uses the modern MCP **Streamable HTTP** transport, not the legacy HTTP+SSE transport. Some clients, including Antigravity, don't support the legacy one at all. If a client can only start local processes, use [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) to bridge stdio to HTTP. The [Claude Desktop](#claude-desktop) section shows an example.
+
+### Run Harness as an HTTP Server
+
+Every HTTP configuration below expects Harness to be running already and listening on port `9090`.
+
+Natively:
+
+```sh
+HARNESS_TRANSPORT=http \
+HARNESS_PORT=9090 \
+HARNESS_DB_PATH=$HOME/.harness/harness.db \
+harness
+```
+
+With Docker Compose, set `HARNESS_TRANSPORT=http` in [`docker-compose.yml`](docker-compose.yml) and run:
+
+```sh
+make docker-migrate-up
+make docker-up
+```
+
+> [!CAUTION]
+> The HTTP endpoint has **no authentication** yet. Bind it to `localhost`, or keep it on a trusted private network. Don't expose port `9090` to the public internet.
 
 ### Claude Code
 
-Using the CLI (stdio):
+**stdio**, using the CLI:
 
 ```sh
 claude mcp add harness \
@@ -269,13 +294,15 @@ claude mcp add harness \
   -- harness
 ```
 
-Using the CLI (HTTP, with Harness already running):
+**Streamable HTTP**, using the CLI:
 
 ```sh
 claude mcp add --transport http --scope user harness http://localhost:9090/mcp
 ```
 
-To share the setup with your team, commit a project-scoped `.mcp.json` at the repository root:
+To share the setup with your team, commit a project-scoped `.mcp.json` at the repository root.
+
+**stdio** (`.mcp.json`):
 
 ```json
 {
@@ -291,6 +318,19 @@ To share the setup with your team, commit a project-scoped `.mcp.json` at the re
 }
 ```
 
+**Streamable HTTP** (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "type": "http",
+      "url": "http://localhost:9090/mcp"
+    }
+  }
+}
+```
+
 Check the connection with `claude mcp list`, or run `/mcp` inside a session.
 
 ### Claude Desktop
@@ -300,6 +340,8 @@ Edit `claude_desktop_config.json`. You can open it from **Settings → Developer
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
+**stdio**:
+
 ```json
 {
   "mcpServers": {
@@ -313,6 +355,22 @@ Edit `claude_desktop_config.json`. You can open it from **Settings → Developer
   }
 }
 ```
+
+**Streamable HTTP**: Claude Desktop's config file can only start local processes, so use `mcp-remote` to connect to the running server. This requires Node.js.
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:9090/mcp"]
+    }
+  }
+}
+```
+
+> [!NOTE]
+> Claude's **Settings → Connectors** (custom connectors) connect from Anthropic's cloud, so they can't reach `localhost`. Use a connector only if Harness is deployed behind a public HTTPS URL with authentication.
 
 Restart Claude Desktop afterwards. The Harness tools will appear in the tools (🔨) menu.
 
@@ -320,7 +378,7 @@ Restart Claude Desktop afterwards. The Harness tools will appear in the tools (�
 
 Add Harness to `~/.gemini/config/mcp_config.json`. You can also open it from **Additional Options (…) → MCP Servers**.
 
-stdio:
+**stdio**:
 
 ```json
 {
@@ -336,7 +394,7 @@ stdio:
 }
 ```
 
-Streamable HTTP:
+**Streamable HTTP**:
 
 ```json
 {
@@ -352,7 +410,9 @@ Once connected, Antigravity adds the Harness tools to the agent's toolset automa
 
 ### Gemini CLI
 
-Add to `~/.gemini/settings.json` (global) or `.gemini/settings.json` (per project):
+Add to `~/.gemini/settings.json` (global) or `.gemini/settings.json` (per project).
+
+**stdio**:
 
 ```json
 {
@@ -368,11 +428,25 @@ Add to `~/.gemini/settings.json` (global) or `.gemini/settings.json` (per projec
 }
 ```
 
-For HTTP, replace the entry with `{ "httpUrl": "http://localhost:9090/mcp" }`. Run `/mcp` in a session to check the connection.
+**Streamable HTTP**. Use `httpUrl`; Gemini CLI uses the `url` key for legacy SSE servers.
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "httpUrl": "http://localhost:9090/mcp"
+    }
+  }
+}
+```
+
+Or use the CLI: `gemini mcp add --transport http harness http://localhost:9090/mcp`. Run `/mcp` in a session to check the connection.
 
 ### Cursor
 
-Add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per project):
+Add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per project).
+
+**stdio**:
 
 ```json
 {
@@ -388,11 +462,25 @@ Add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per project):
 }
 ```
 
-For HTTP, use `{ "url": "http://localhost:9090/mcp" }`.
+**Streamable HTTP**:
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "url": "http://localhost:9090/mcp"
+    }
+  }
+}
+```
+
+Check that the server is green under **Settings → MCP**.
 
 ### VS Code (GitHub Copilot)
 
-Add to `.vscode/mcp.json` in your workspace. VS Code uses a top-level `servers` key:
+Add to `.vscode/mcp.json` in your workspace. VS Code uses a top-level `servers` key.
+
+**stdio**:
 
 ```json
 {
@@ -409,11 +497,26 @@ Add to `.vscode/mcp.json` in your workspace. VS Code uses a top-level `servers` 
 }
 ```
 
-For HTTP, use `{ "type": "http", "url": "http://localhost:9090/mcp" }`. Then open Copilot Chat in **Agent** mode and turn on the Harness tools.
+**Streamable HTTP**:
+
+```json
+{
+  "servers": {
+    "harness": {
+      "type": "http",
+      "url": "http://localhost:9090/mcp"
+    }
+  }
+}
+```
+
+Then open Copilot Chat in **Agent** mode and turn on the Harness tools.
 
 ### Windsurf
 
-Add to `~/.codeium/windsurf/mcp_config.json`:
+Add to `~/.codeium/windsurf/mcp_config.json`.
+
+**stdio**:
 
 ```json
 {
@@ -429,17 +532,52 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 }
 ```
 
-For HTTP, use `{ "serverUrl": "http://localhost:9090/mcp" }`.
+**Streamable HTTP**:
+
+```json
+{
+  "mcpServers": {
+    "harness": {
+      "serverUrl": "http://localhost:9090/mcp"
+    }
+  }
+}
+```
 
 ### OpenAI Codex CLI
 
-Add to `~/.codex/config.toml`:
+Add to `~/.codex/config.toml`.
+
+**stdio**:
 
 ```toml
 [mcp_servers.harness]
 command = "harness"
 env = { HARNESS_TRANSPORT = "stdio", HARNESS_DB_PATH = "/Users/you/.harness/harness.db" }
 ```
+
+**Streamable HTTP**:
+
+```toml
+[mcp_servers.harness]
+url = "http://localhost:9090/mcp"
+```
+
+> [!NOTE]
+> Older Codex releases need `experimental_use_rmcp_client = true` at the top level of `config.toml` before they support HTTP servers. On those versions, you can use the `mcp-remote` bridge instead: `command = "npx"`, `args = ["-y", "mcp-remote", "http://localhost:9090/mcp"]`.
+
+### Quick Reference
+
+| Client | Config file | stdio keys | Streamable HTTP keys |
+|---|---|---|---|
+| Claude Code | `.mcp.json` / `claude mcp add` | `command`, `env` | `"type": "http"`, `url` |
+| Claude Desktop | `claude_desktop_config.json` | `command`, `env` | via `mcp-remote` bridge |
+| Antigravity | `~/.gemini/config/mcp_config.json` | `command`, `env` | `url` |
+| Gemini CLI | `~/.gemini/settings.json` | `command`, `env` | `httpUrl` |
+| Cursor | `~/.cursor/mcp.json` | `command`, `env` | `url` |
+| VS Code | `.vscode/mcp.json` (`servers`) | `"type": "stdio"`, `command` | `"type": "http"`, `url` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` | `command`, `env` | `serverUrl` |
+| Codex CLI | `~/.codex/config.toml` | `command`, `env` | `url` |
 
 ### Running Harness in Docker for stdio Clients
 
