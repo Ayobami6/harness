@@ -28,7 +28,7 @@ func NewServer(cfg config.Config, name, version string, modules ...ToolModule) (
 	logger := config.NewLogger(cfg)
 	for _, module := range modules {
 		if err := module.RegisterTools(s); err != nil {
-			logger.Error("Failed to register tools for module 😡⚠️", "error", err)
+			logger.Error("Failed to register tools for module", "error", err)
 			return nil, fmt.Errorf("failed to register tools for module: %w", err)
 		}
 	}
@@ -42,7 +42,7 @@ func NewServer(cfg config.Config, name, version string, modules ...ToolModule) (
 
 // StartStdio starts the MCP server and serves it over standard input/output (stdio).
 func (s *Server) StartStdio() error {
-	s.logger.Info("🚀 Starting MCP Server over stdio 🚀")
+	s.logger.Info("Starting MCP Server over stdio")
 	if err := server.ServeStdio(s.mcpServer); err != nil {
 		return fmt.Errorf("failed to serve mcp over stdio: %w", err)
 	}

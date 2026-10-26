@@ -1,6 +1,6 @@
 module harness
 
-go 1.26.6
+go 1.26.10
 
 require (
 	github.com/joho/godotenv v1.5.1
