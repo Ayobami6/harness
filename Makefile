@@ -1,3 +1,4 @@
+SQLC ?= sqlc
 GOOSE ?= goose
 GOOSE_VERSION ?= v3.29.0
 DB_PATH ?= ./harness.db
@@ -10,7 +11,7 @@ DOCKER_DB_PATH ?= /data/harness.db
 DOCKER_MIGRATIONS_DIR ?= /app/db/migrations
 DOCKER_GOOSE_ARGS = -dir "$(DOCKER_MIGRATIONS_DIR)" sqlite3 "$(DOCKER_DB_PATH)"
 
-.PHONY: goose-install migrate-create migrate-status migrate-up migrate-down test test-cov test-cov-html lint run up docker-up docker-down docker-migrate-status docker-migrate-up docker-migrate-down compose-up compose-down compose-migrate-status compose-migrate-up compose-migrate-down
+.PHONY: goose-install migrate-create migrate-status migrate-up migrate-down test test-cov test-cov-html lint run up docker-up docker-down docker-migrate-status docker-migrate-up docker-migrate-down compose-up compose-down compose-migrate-status compose-migrate-up compose-migrate-down generate sqlc-generate
 
 COVERAGE_FILE ?= coverage.out
 
@@ -26,6 +27,11 @@ test-cov-html: test-cov
 
 lint:
 	golangci-lint run --timeout 5m
+
+generate:
+	$(SQLC) generate
+
+sqlc-generate: generate
 
 goose-install:
 	go install -tags='no_postgres no_mysql no_ydb no_mssql no_clickhouse no_azuresql no_vertica no_libsql' github.com/pressly/goose/v3/cmd/goose@$(GOOSE_VERSION)
