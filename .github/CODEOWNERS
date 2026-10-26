@@ -1,0 +1,18 @@
+# Default owner for everything in the repository
+*                       @Ayobami6
+
+# Database schema, migrations, and sqlc query definitions
+/db/                    @Ayobami6
+/sqlc.yml               @Ayobami6
+
+# Core MCP server, repository layer, and agent tools
+/cmd/                   @Ayobami6
+/config/                @Ayobami6
+/internal/              @Ayobami6
+
+# Build, container, and CI/CD configurations
+/Dockerfile             @Ayobami6
+/docker-compose.yml     @Ayobami6
+/Makefile               @Ayobami6
+/.golangci.yml          @Ayobami6
+/.github/               @Ayobami6
