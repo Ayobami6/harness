@@ -8,6 +8,8 @@
 
 A lightweight, local-first [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server, written in Go, that turns your past architectural decisions, solved production bugs, and hard-earned engineering instincts into a persistent context layer for AI agents.
 
+[![CI](https://github.com/Ayobami6/harness/actions/workflows/ci.yml/badge.svg)](https://github.com/Ayobami6/harness/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Ayobami6/harness/actions/workflows/codeql.yml/badge.svg)](https://github.com/Ayobami6/harness/actions/workflows/codeql.yml)
 [![Go Version](https://img.shields.io/badge/go-1.26%2B-00ADD8?logo=go)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/protocol-MCP-6E56CF)](https://modelcontextprotocol.io/)
@@ -65,6 +67,7 @@ Most AI coding assistants start from zero on every prompt. Harness gives them yo
   - [Database Migrations](#database-migrations)
   - [Code Generation with sqlc](#code-generation-with-sqlc)
   - [Testing and Linting](#testing-and-linting)
+  - [CI & Automated Code Reviews](#ci--automated-code-reviews)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
@@ -756,6 +759,8 @@ harness/
 | `make test-cov` | Run tests with an atomic coverage profile and print a per-function summary. |
 | `make test-cov-html` | Generate `coverage.html`. |
 | `make lint` | Run `golangci-lint`. |
+| `make build` | Build a static binary into `bin/harness` (`CGO_ENABLED=0`). |
+| `make ci` | Run `lint`, `test`, and `build` sequentially. |
 | `make generate` / `make sqlc-generate` | Regenerate the repository layer with sqlc. |
 | `make goose-install` | Install the pinned Goose CLI (`v3.29.0`, SQLite-only build tags). |
 | `make migrate-create name=<name>` | Create a new SQL migration. |
@@ -813,6 +818,18 @@ Before opening a pull request, both of these must pass:
 golangci-lint run
 go test -race ./...
 ```
+
+### CI & Automated Code Reviews
+
+Every push to `main` and pull request runs three GitHub Actions workflows in [`.github/workflows/`](.github/workflows):
+
+| Workflow | File | Checks |
+|---|---|---|
+| **CI** | [`ci.yml`](.github/workflows/ci.yml) | `go mod tidy` check, `golangci-lint`, race-enabled unit tests on Linux & macOS with coverage summary, Goose migration lifecycle (`up` → `down` → `up`), `sqlc compile` + `sqlc generate` drift verification, cross-platform static binary builds (`linux/darwin/windows`, `amd64/arm64`), Docker Buildx image build + container migration smoke test, and `govulncheck`. |
+| **Code Review & PR Quality** | [`code-review.yml`](.github/workflows/code-review.yml) | Enforces Conventional Commit PR titles, runs GitHub Dependency Review (blocking high-severity CVEs and copyleft licenses), posts inline PR review annotations from `golangci-lint` via **reviewdog**, and (when `GEMINI_API_KEY` is configured in repository secrets) posts an automated **Gemini AI architectural & code review** on the PR diff. |
+| **CodeQL Security Analysis** | [`codeql.yml`](.github/workflows/codeql.yml) | Runs GitHub CodeQL `security-extended` and `security-and-quality` static analysis for Go on pushes, PRs, and a weekly schedule. |
+
+Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml)) opens weekly update PRs for Go modules, GitHub Actions, and the Dockerfile.
 
 ## Roadmap
 
