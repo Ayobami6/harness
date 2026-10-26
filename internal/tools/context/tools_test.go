@@ -129,6 +129,7 @@ CREATE INDEX IF NOT EXISTS idx_code_exemplars_lookup ON code_exemplars(language,
 CREATE INDEX IF NOT EXISTS idx_code_exemplars_dev_log ON code_exemplars(dev_log_id);
 `
 	if _, err := conn.ExecContext(ctx, schema); err != nil {
+		_ = conn.Close()
 		t.Fatalf("failed to execute schema: %v", err)
 	}
 

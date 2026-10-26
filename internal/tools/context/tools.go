@@ -738,10 +738,10 @@ func parseJSONOrString(r mcp.CallToolRequest, key string, fallback string) strin
 		return trimmed
 	default:
 		b, err := json.Marshal(v)
-		if err == nil {
-			return string(b)
+		if err != nil {
+			return fallback
 		}
-		return fmt.Sprintf("%v", v)
+		return string(b)
 	}
 }
 

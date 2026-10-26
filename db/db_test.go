@@ -83,6 +83,15 @@ func TestConnectDB_Pragmas(t *testing.T) {
 	if busyTimeout != 5000 {
 		t.Errorf("expected busy_timeout = 5000, got %d", busyTimeout)
 	}
+
+	// Verify synchronous pragma
+	var synchronous int
+	if err := conn.QueryRowContext(ctx, "PRAGMA synchronous;").Scan(&synchronous); err != nil {
+		t.Fatalf("failed to check synchronous pragma: %v", err)
+	}
+	if synchronous != 1 { // 1 = NORMAL
+		t.Errorf("expected synchronous = 1 (NORMAL), got %d", synchronous)
+	}
 }
 
 func TestConnectDB_EmptyDbPath(t *testing.T) {
