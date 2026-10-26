@@ -11,9 +11,10 @@ DOCKER_DB_PATH ?= /data/harness.db
 DOCKER_MIGRATIONS_DIR ?= /app/db/migrations
 DOCKER_GOOSE_ARGS = -dir "$(DOCKER_MIGRATIONS_DIR)" sqlite3 "$(DOCKER_DB_PATH)"
 
-.PHONY: goose-install migrate-create migrate-status migrate-up migrate-down test test-cov test-cov-html lint run up docker-up docker-down docker-migrate-status docker-migrate-up docker-migrate-down compose-up compose-down compose-migrate-status compose-migrate-up compose-migrate-down generate sqlc-generate
+.PHONY: goose-install migrate-create migrate-status migrate-up migrate-down test test-cov test-cov-html lint build ci run up docker-up docker-down docker-migrate-status docker-migrate-up docker-migrate-down compose-up compose-down compose-migrate-status compose-migrate-up compose-migrate-down generate sqlc-generate
 
 COVERAGE_FILE ?= coverage.out
+BIN_DIR ?= bin
 
 test:
 	go test -race -v ./...
@@ -27,6 +28,12 @@ test-cov-html: test-cov
 
 lint:
 	golangci-lint run --timeout 5m
+
+build:
+	mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o $(BIN_DIR)/harness ./cmd/main.go
+
+ci: lint test build
 
 generate:
 	$(SQLC) generate

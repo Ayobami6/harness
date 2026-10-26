@@ -1,0 +1,155 @@
+name: Code Review & PR Quality
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+  statuses: read
+
+env:
+  GOLANGCI_LINT_VERSION: v2.15.0
+
+jobs:
+  pr-title:
+    name: Conventional PR Title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate PR title follows Conventional Commits
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+
+  dependency-review:
+    name: Dependency Security & License Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          deny-licenses: AGPL-3.0, GPL-3.0
+
+  reviewdog:
+    name: Inline Code Review Annotations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run golangci-lint with reviewdog
+        uses: reviewdog/action-golangci-lint@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          golangci_lint_flags: "--timeout=5m"
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          reporter: github-pr-review
+          filter_mode: added
+          fail_on_error: true
+
+  ai-review:
+    name: Gemini AI Code Review
+    if: github.event.pull_request.head.repo.full_name == github.repository && secrets.GEMINI_API_KEY != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gemini PR Review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          DIFF=$(git diff "$BASE_SHA"..."$HEAD_SHA" -- . ':(exclude)go.sum' ':(exclude)docs/assets/*')
+          if [ -z "$DIFF" ]; then
+            echo "No reviewable diff found."
+            exit 0
+          fi
+
+          PROMPT=$(cat <<'EOF'
+          You are a Principal Go Systems Architect reviewing a pull request for Harness (a Go MCP server backed by SQLite + FTS5).
+          Review the diff strictly against these criteria:
+          1. Error handling: no swallowed errors, wrap with context (`fmt.Errorf("...: %w", err)`), check `Close()` errors.
+          2. Context & concurrency: `context.Context` as first parameter on I/O paths, no goroutine/resource leaks, SQLite concurrency safety.
+          3. Architecture boundaries: domain logic isolated from I/O, clean repository/sqlc usage, migrations only via Goose.
+          4. Security & correctness: SQL injection, path traversal, race conditions, missing edge-case tests.
+
+          Be concise and actionable. Group findings under:
+          - **Blocking Issues** (bugs, races, security, broken invariants)
+          - **Suggestions** (idiomatic Go, clarity, test coverage)
+          - **Summary Verdict** (Approve / Request Changes)
+          EOF
+          )
+
+          PAYLOAD=$(jq -n \
+            --arg prompt "$PROMPT" \
+            --arg diff "${DIFF:0:90000}" \
+            '{
+              contents: [{
+                parts: [{
+                  text: ($prompt + "\n\n```diff\n" + $diff + "\n```")
+                }]
+              }],
+              generationConfig: {
+                temperature: 0.2
+              }
+            }')
+
+          RESPONSE=$(curl -sS -X POST \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          REVIEW_BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
+          if [ -z "$REVIEW_BODY" ]; then
+            echo "::warning::Gemini API did not return a review body."
+            exit 0
+          fi
+
+          {
+            echo "## 🤖 Gemini Architecture & Code Review"
+            echo ""
+            echo "$REVIEW_BODY"
+          } > /tmp/review.md
+
+          gh pr comment "$PR_NUMBER" --body-file /tmp/review.md
+
