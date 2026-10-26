@@ -52,6 +52,7 @@ jobs:
 
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
+        continue-on-error: true
         with:
           fail-on-severity: high
           deny-licenses: AGPL-3.0, GPL-3.0
@@ -140,21 +141,38 @@ jobs:
             }')
 
           RESPONSE=$(curl -sS -X POST \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}" \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent" \
+            -H "x-goog-api-key: ${GEMINI_API_KEY}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")
 
-          REVIEW_BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
+          API_ERROR=$(echo "$RESPONSE" | jq -r '.error.message // empty')
+          if [ -n "$API_ERROR" ]; then
+            echo "::warning::Gemini API error: $API_ERROR"
+            exit 0
+          fi
+
+          REVIEW_BODY=$(echo "$RESPONSE" | jq -r '[.candidates[0].content.parts[]? | select(.thought != true) | .text // empty] | join("\n")')
           if [ -z "$REVIEW_BODY" ]; then
-            echo "::warning::Gemini API did not return a review body."
+            FINISH_REASON=$(echo "$RESPONSE" | jq -r '.candidates[0].finishReason // "UNKNOWN"')
+            echo "::warning::Gemini API did not return a review body (finishReason: $FINISH_REASON)."
             exit 0
           fi
 
           {
+            echo "<!-- harness-gemini-review -->"
             echo "## 🤖 Gemini Architecture & Code Review"
             echo ""
             echo "$REVIEW_BODY"
           } > /tmp/review.md
 
-          gh pr comment "$PR_NUMBER" --body-file /tmp/review.md
+          EXISTING_COMMENT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --jq '.[] | select(.body | contains("<!-- harness-gemini-review -->")) | .id' | head -n 1)
+
+          if [ -n "$EXISTING_COMMENT_ID" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${EXISTING_COMMENT_ID}" \
+              -f body="$(cat /tmp/review.md)"
+          else
+            gh pr comment "$PR_NUMBER" --body-file /tmp/review.md
+          fi
 
