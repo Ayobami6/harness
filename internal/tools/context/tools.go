@@ -14,6 +14,11 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+const (
+	defaultLimit = 20
+	maxLimit     = 100
+)
+
 // Module implements the mcp.ToolModule interface to provide context-retrieval
 // and memory persistence tools for the Harness platform.
 type Module struct {
@@ -710,11 +715,11 @@ func (m *Module) handleGetCodeExemplars(ctx stdctx.Context, req mcp.CallToolRequ
 // --- Helper Functions ---
 
 func extractPagination(req mcp.CallToolRequest) (limit int64, offset int64) {
-	l := req.GetInt("limit", 20)
+	l := req.GetInt("limit", defaultLimit)
 	if l <= 0 {
-		l = 20
-	} else if l > 100 {
-		l = 100
+		l = defaultLimit
+	} else if l > maxLimit {
+		l = maxLimit
 	}
 	o := req.GetInt("offset", 0)
 	if o < 0 {
