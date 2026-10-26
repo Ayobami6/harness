@@ -18,7 +18,7 @@ func ConnectDB(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*s
 		return nil, fmt.Errorf("database path is empty 🙄")
 	}
 
-	dsn := fmt.Sprintf("%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)", cfg.DbPath)
+	dsn := fmt.Sprintf("%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)", cfg.DbPath)
 
 	conn, err := sql.Open("sqlite", dsn)
 	if err != nil {
