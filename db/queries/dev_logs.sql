@@ -77,12 +77,11 @@ SELECT
     l.tags,
     l.git_ref,
     l.created_at,
-    dev_logs_fts.rank
-FROM dev_logs_fts
+    CAST(bm25(dev_logs_fts) AS REAL) AS fts_rank
+FROM dev_logs_fts(sqlc.arg(query))
 JOIN dev_logs l ON l.id = dev_logs_fts.rowid
-WHERE dev_logs_fts MATCH ?
-ORDER BY dev_logs_fts.rank
-LIMIT ? OFFSET ?;
+ORDER BY fts_rank
+LIMIT sqlc.arg(limit) OFFSET sqlc.arg(offset);
 
 -- name: SearchDevLogsFTSByProject :many
 SELECT 
@@ -96,10 +95,10 @@ SELECT
     l.tags,
     l.git_ref,
     l.created_at,
-    dev_logs_fts.rank
-FROM dev_logs_fts
+    CAST(bm25(dev_logs_fts) AS REAL) AS fts_rank
+FROM dev_logs_fts(sqlc.arg(query))
 JOIN dev_logs l ON l.id = dev_logs_fts.rowid
-WHERE dev_logs_fts MATCH ? AND l.project = ?
-ORDER BY dev_logs_fts.rank
-LIMIT ? OFFSET ?;
+WHERE l.project = sqlc.arg(project)
+ORDER BY fts_rank
+LIMIT sqlc.arg(limit) OFFSET sqlc.arg(offset);
 

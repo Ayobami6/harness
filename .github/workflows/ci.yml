@@ -16,7 +16,7 @@ permissions:
 
 env:
   GOOSE_VERSION: v3.29.0
-  SQLC_VERSION: v1.28.0
+  SQLC_VERSION: v1.31.1
   GOLANGCI_LINT_VERSION: v2.15.0
 
 jobs:
