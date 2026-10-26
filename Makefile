@@ -1,3 +1,6 @@
+GOPATH ?= $(shell go env GOPATH)
+export PATH := $(GOPATH)/bin:$(PATH)
+
 SQLC ?= sqlc
 GOOSE ?= goose
 GOOSE_VERSION ?= v3.29.0
