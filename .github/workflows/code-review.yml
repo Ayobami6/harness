@@ -82,7 +82,7 @@ jobs:
 
   ai-review:
     name: Gemini AI Code Review
-    if: github.event.pull_request.head.repo.full_name == github.repository && secrets.GEMINI_API_KEY != ''
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -99,6 +99,11 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "GEMINI_API_KEY secret is not configured; skipping AI code review."
+            exit 0
+          fi
+
           DIFF=$(git diff "$BASE_SHA"..."$HEAD_SHA" -- . ':(exclude)go.sum' ':(exclude)docs/assets/*')
           if [ -z "$DIFF" ]; then
             echo "No reviewable diff found."
