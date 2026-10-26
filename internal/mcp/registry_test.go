@@ -39,8 +39,10 @@ func TestNewServer(t *testing.T) {
 			Port:     "9090",
 		}
 
-		s := NewServer(cfg, "test-server", "1.0.0")
-
+		s, err := NewServer(cfg, "test-server", "1.0.0")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 		if s == nil {
 			t.Fatal("expected non-nil server")
 		}
@@ -67,8 +69,10 @@ func TestNewServer(t *testing.T) {
 		mod1 := &mockToolModule{toolName: "tool_alpha"}
 		mod2 := &mockToolModule{toolName: "tool_beta"}
 
-		s := NewServer(cfg, "multi-server", "2.0.0", mod1, mod2)
-
+		s, err := NewServer(cfg, "multi-server", "2.0.0", mod1, mod2)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 		if !mod1.called {
 			t.Error("expected mod1.RegisterTools to be called")
 		}
@@ -88,7 +92,7 @@ func TestNewServer(t *testing.T) {
 		}
 	})
 
-	t.Run("panics when a module fails registration", func(t *testing.T) {
+	t.Run("returns error when a module fails registration", func(t *testing.T) {
 		cfg := config.Config{
 			LogLevel: slog.LevelError,
 			Port:     "9090",
@@ -97,21 +101,16 @@ func TestNewServer(t *testing.T) {
 		expectedErr := errors.New("registration failed")
 		failingMod := &mockToolModule{registerErr: expectedErr}
 
-		defer func() {
-			r := recover()
-			if r == nil {
-				t.Fatal("expected NewServer to panic, but it did not")
-			}
-			err, ok := r.(error)
-			if !ok {
-				t.Fatalf("expected panic with error, got %T: %v", r, r)
-			}
-			if !errors.Is(err, expectedErr) {
-				t.Fatalf("expected error %v, got %v", expectedErr, err)
-			}
-		}()
-
-		NewServer(cfg, "failing-server", "1.0.0", failingMod)
+		s, err := NewServer(cfg, "failing-server", "1.0.0", failingMod)
+		if err == nil {
+			t.Fatal("expected NewServer to return error, got nil")
+		}
+		if !errors.Is(err, expectedErr) {
+			t.Fatalf("expected error wrapping %v, got %v", expectedErr, err)
+		}
+		if s != nil {
+			t.Errorf("expected nil server on error, got %v", s)
+		}
 	})
 }
 
@@ -120,8 +119,12 @@ func TestServer_StartHTTP_InvalidPort(t *testing.T) {
 		Port: "invalid-port-format",
 	}
 
-	s := NewServer(cfg, "http-test", "1.0.0")
-	err := s.StartHTTP("")
+	s, err := NewServer(cfg, "http-test", "1.0.0")
+	if err != nil {
+		t.Fatalf("unexpected error creating server: %v", err)
+	}
+
+	err = s.StartHTTP("")
 	if err == nil {
 		t.Fatal("expected error when starting HTTP server with invalid port, got nil")
 	}
@@ -131,7 +134,10 @@ func TestServer_StartStdio_ClosedPipe(t *testing.T) {
 	cfg := config.Config{
 		LogLevel: slog.LevelError,
 	}
-	s := NewServer(cfg, "stdio-test", "1.0.0")
+	s, err := NewServer(cfg, "stdio-test", "1.0.0")
+	if err != nil {
+		t.Fatalf("unexpected error creating server: %v", err)
+	}
 
 	// Create a pipe and immediately close the write end so stdin receives EOF
 	r, w, err := os.Pipe()
@@ -150,4 +156,3 @@ func TestServer_StartStdio_ClosedPipe(t *testing.T) {
 	// ServeStdio should process EOF and return without blocking
 	_ = s.StartStdio()
 }
-

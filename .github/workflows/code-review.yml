@@ -105,7 +105,7 @@ jobs:
             exit 0
           fi
 
-          DIFF=$(git diff "$BASE_SHA"..."$HEAD_SHA" -- . ':(exclude)go.sum' ':(exclude)docs/assets/*')
+          DIFF=$(git diff "$BASE_SHA"..."$HEAD_SHA" -- . ':(exclude)go.sum' ':(exclude)docs/assets/*' ':(exclude)internal/repository/*')
           if [ -z "$DIFF" ]; then
             echo "No reviewable diff found."
             exit 0

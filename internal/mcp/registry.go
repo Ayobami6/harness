@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"fmt"
 	"harness/config"
 	"log/slog"
 
@@ -8,7 +9,6 @@ import (
 )
 
 // ToolModule interface defines the methods that a tool module should implement to be compatible with the MCP framework.
-
 type ToolModule interface {
 	RegisterTools(s *server.MCPServer) error
 }
@@ -21,14 +21,15 @@ type Server struct {
 	logger    *slog.Logger
 }
 
-func NewServer(cfg config.Config, name, version string, modules ...ToolModule) *Server {
+// NewServer initializes a new MCP server and registers the provided tool modules.
+// If any module fails to register, it returns an error instead of panicking.
+func NewServer(cfg config.Config, name, version string, modules ...ToolModule) (*Server, error) {
 	s := server.NewMCPServer(name, version, server.WithToolCapabilities(true))
-	// let's register the modules here
 	logger := config.NewLogger(cfg)
 	for _, module := range modules {
 		if err := module.RegisterTools(s); err != nil {
 			logger.Error("Failed to register tools for module 😡⚠️", "error", err)
-			panic(err)
+			return nil, fmt.Errorf("failed to register tools for module: %w", err)
 		}
 	}
 	return &Server{
@@ -36,22 +37,27 @@ func NewServer(cfg config.Config, name, version string, modules ...ToolModule) *
 		modules:   modules,
 		cfg:       cfg,
 		logger:    logger,
-	}
+	}, nil
 }
 
 // StartStdio starts the MCP server and serves it over standard input/output (stdio).
-// It registers all provided tool modules before starting the server. If any module fails to register, it logs the error and returns it.
 func (s *Server) StartStdio() error {
 	s.logger.Info("🚀 Starting MCP Server over stdio 🚀")
-	// Start the MCP server and serve over stdio
-	return server.ServeStdio(s.mcpServer)
+	if err := server.ServeStdio(s.mcpServer); err != nil {
+		return fmt.Errorf("failed to serve mcp over stdio: %w", err)
+	}
+	return nil
 }
 
-// StartHTTP starts the MCP server and serves it over HTTP on the specified address.
-// It registers all provided tool modules before starting the server. If any module fails to register, it logs the error and returns it.
+// StartHTTP starts the MCP server and serves it over HTTP on the specified address or configured port.
 func (s *Server) StartHTTP(address string) error {
-
-	// Start the MCP server and serve over HTTP
+	port := s.cfg.Port
+	if address != "" {
+		port = address
+	}
 	httpServer := server.NewStreamableHTTPServer(s.mcpServer)
-	return httpServer.Start(s.cfg.Port)
+	if err := httpServer.Start(port); err != nil {
+		return fmt.Errorf("failed to start mcp http server on port %s: %w", port, err)
+	}
+	return nil
 }
