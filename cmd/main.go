@@ -37,6 +37,10 @@ func main() {
 		logger.Error("Failed to connect to database 😡😡", "error", err)
 		panic(err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Error("Failed to close database connection", "error", err)
+		}
+	}()
 
 }
