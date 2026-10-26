@@ -1,44 +1,342 @@
+<div align="center">
+
 # Harness
 
-> **What if you had an agent that thinks like you, codes exactly like you, and does things exactly how you would?**
->
-> Harness gives your AI agents your actual work experience—turning your past architectural decisions, solved production bugs, and hard-earned engineering instincts into a continuous, active context layer.
+**Give your AI coding agents your engineering experience.**
 
-Harness is a lightweight, local-first [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server built in Go. Instead of letting coding assistants start from scratch on every prompt, Harness equips them with your historical track record, technical trade-offs, and operational tools so they write software the way you actually build it.
+A lightweight, local-first [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server, written in Go, that turns your past architectural decisions, solved production bugs, and hard-earned engineering instincts into a persistent context layer for AI agents.
+
+[![Go Version](https://img.shields.io/badge/go-1.26%2B-00ADD8?logo=go)](https://go.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![MCP](https://img.shields.io/badge/protocol-MCP-6E56CF)](https://modelcontextprotocol.io/)
+[![SQLite](https://img.shields.io/badge/storage-SQLite%20%2B%20FTS5-003B57?logo=sqlite)](https://www.sqlite.org/fts5.html)
+[![Status](https://img.shields.io/badge/status-early%20development-orange)](#project-status)
+
+[Why Harness](#why-harness) •
+[How It Works](#how-it-works) •
+[Quick Start](#quick-start) •
+[Configuration](#configuration) •
+[Data Model](#data-model) •
+[Development](#development) •
+[Roadmap](#roadmap) •
+[Contributing](#contributing)
+
+</div>
 
 ---
 
-## Give Your Agent Your Engineering Experience
+> **What if you had an agent that thinks like you, codes like you, and does things the way you would?**
 
-Most AI coding assistants suffer from a total lack of historical context:
-* They don't know the race conditions you solved in your ledger service six months ago.
-* They don't know your team strictly avoids certain ORMs or mandates idempotency keys on payment webhooks.
-* They default to generic boilerplate that violates your production constraints.
+Most AI coding assistants start from zero on every prompt. Harness gives them your track record: the problems you've solved, the trade-offs you've accepted, the incidents you've survived, and the code patterns you trust. Your agent then writes software the way you build it.
 
-Harness bridges this gap by acting as a cognitive and operational harness:
+## Table of Contents
 
-- **Institutional Developer Memory:** Automatically records and indexes the problems you tackle, the solutions you deploy, and the trade-offs you accept across all your projects.
-- **Architectural & Style Alignment:** Injects your battle-tested patterns, concurrency rules, and conventions directly into the agent’s prompt loop.
-- **Operational Precision:** Supplies targeted, token-efficient tools for schema inspection, test running, and failure diagnostics.
-- **Zero-Friction Deployment:** Runs in seconds via Docker Compose or as a standalone Go binary, backed by an embedded SQLite datastore.
+- [Why Harness](#why-harness)
+- [Features](#features)
+- [How It Works](#how-it-works)
+- [Project Status](#project-status)
+- [Quick Start](#quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Run Locally](#run-locally)
+  - [Run with Docker Compose](#run-with-docker-compose)
+- [Configuration](#configuration)
+- [Data Model](#data-model)
+- [Project Structure](#project-structure)
+- [Development](#development)
+  - [Make Targets](#make-targets)
+  - [Database Migrations](#database-migrations)
+  - [Code Generation with sqlc](#code-generation-with-sqlc)
+  - [Testing and Linting](#testing-and-linting)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Database Migrations
+---
 
-Schema changes are managed with [Goose](https://github.com/pressly/goose) SQL migrations in `db/migrations`. Install the pinned Goose CLI once (Go must be installed):
+## Why Harness
 
-```sh
-make goose-install
+AI coding assistants don't know your history:
+
+- **They don't know your past fixes.** The race condition you solved in your ledger service six months ago is invisible to them.
+- **They don't know your rules.** Your team may avoid certain ORMs or require idempotency keys on payment webhooks. The agent has no way to know that.
+- **They fall back to generic boilerplate.** The default output often breaks production constraints you've already learned the hard way.
+
+Harness fills this gap by acting as both a memory layer and a set of operational tools for your agents.
+
+## Features
+
+| Capability | Description |
+|---|---|
+| 🧠 **Developer memory** | Records and indexes the problems you tackle, the solutions you deploy, and the trade-offs you accept, across all your projects. |
+| 🏛️ **Architecture and style alignment** | Stores per-project architecture styles, conventions, core stacks, and strict DO/DON'T rules so the agent follows them. |
+| 🔥 **Incident recall** | Keeps post-mortems (root cause, resolution, prevention rules) so the agent doesn't repeat past failures. |
+| 🧩 **Feature backstory** | Tracks critical invariants and dependencies for each feature, so changes respect constraints that can't be broken. |
+| ✨ **Golden code exemplars** | Saves canonical, approved snippets by language and topic (e.g. `db_transaction`, `worker_pool`) as reference implementations. |
+| 🔎 **Full-text search** | Ranked SQLite FTS5 search across your dev logs, kept in sync automatically by triggers. |
+| 🪶 **Local-first, zero friction** | A single static Go binary (pure-Go SQLite driver, no CGO) and an embedded database. Runs in seconds via Docker Compose or natively. |
+
+## How It Works
+
+```mermaid
+flowchart LR
+    subgraph Clients["AI Agents / IDEs"]
+        A1["Coding assistant"]
+        A2["Agent runtime"]
+    end
+
+    subgraph Harness["Harness MCP Server (Go)"]
+        T["MCP transport (SSE / stdio)"]
+        CT["Context tools"]
+        OT["Ops tools"]
+        R["Repository (sqlc-generated)"]
+    end
+
+    DB[("SQLite + FTS5 (WAL)")]
+
+    A1 -- MCP --> T
+    A2 -- MCP --> T
+    T --> CT
+    T --> OT
+    CT --> R
+    OT --> R
+    R --> DB
 ```
 
-Make sure `$(go env GOPATH)/bin` is on your `PATH` so the `goose` command can be found.
+1. **Capture.** You (or your agent) record dev logs, incidents, architectural profiles, feature contexts, and code exemplars.
+2. **Index.** Harness stores them in SQLite. Dev logs are indexed with FTS5 for fast, ranked retrieval.
+3. **Inject.** When an agent works on a task, it calls Harness over MCP to pull in the relevant history, rules, and exemplars before it writes code.
 
-Create a migration:
+## Project Status
+
+> [!IMPORTANT]
+> Harness is in **early development**. APIs, schema, and tool names may change without notice before `v1.0.0`.
+
+| Component | Status |
+|---|---|
+| Configuration loading (env / `.env`) and structured logging (`log/slog`) | ✅ Implemented |
+| SQLite connection (WAL, foreign keys, busy timeout) | ✅ Implemented |
+| Initial schema and Goose migrations | ✅ Implemented |
+| sqlc query definitions (dev logs, incidents, profiles, features, exemplars) | ✅ Implemented |
+| Docker / Docker Compose packaging | ✅ Implemented |
+| sqlc-generated repository layer (`internal/repository`) | 🚧 In progress |
+| MCP server and transports (`internal/mcp`) | 🗓️ Planned |
+| Context and ops tools (`internal/tools`) | 🗓️ Planned |
+| `/healthz` endpoint | 🗓️ Planned |
+
+## Quick Start
+
+### Prerequisites
+
+- [Go](https://go.dev/dl/) **1.26+**
+- [Goose](https://github.com/pressly/goose) for migrations (`make goose-install`)
+- [sqlc](https://docs.sqlc.dev/en/latest/overview/install.html) *(only needed to regenerate the data access layer)*
+- [golangci-lint](https://golangci-lint.run/welcome/install/) *(only needed for development)*
+- [Docker](https://docs.docker.com/get-docker/) with Compose v2 *(optional)*
+
+### Run Locally
 
 ```sh
+git clone https://github.com/Ayobami6/harness.git
+cd harness
+
+# Install the pinned Goose CLI (make sure $(go env GOPATH)/bin is on your PATH)
+make goose-install
+
+# Apply migrations to ./harness.db, then start Harness
+make up
+```
+
+`make up` runs `make migrate-up` and then `make run` (`go run cmd/main.go`).
+
+To build a standalone binary:
+
+```sh
+CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/harness ./cmd/main.go
+./bin/harness
+```
+
+### Run with Docker Compose
+
+```sh
+# Apply migrations to the persistent volume
+make docker-migrate-up
+
+# Build and start the stack
+make docker-up
+
+# Tear it down
+make docker-down
+```
+
+The container exposes port **9090** and stores the database at `/data/harness.db` on the named volume `harness_storage`.
+
+> [!NOTE]
+> The image is a multi-stage build on `alpine`. It includes the `harness` binary, the `goose` CLI, and the migration files, so you can run migrations inside the container without installing anything on the host.
+
+## Configuration
+
+Harness reads its configuration from environment variables. If a `.env` file exists in the working directory, it is loaded first. A missing `.env` file is ignored.
+
+Each setting accepts a namespaced `HARNESS_*` variable, which takes precedence, or a short fallback name. Empty or whitespace-only values are treated as unset.
+
+| Variable | Fallback | Default | Description |
+|---|---|---|---|
+| `HARNESS_DB_PATH` | `DB_PATH` | `./harness.db` | Path to the SQLite database file. |
+| `HARNESS_LOG_LEVEL` | `LOG_LEVEL` | `info` | One of `debug`, `info`, `warn`/`warning`, `error`, or any value `slog.Level` accepts (e.g. `INFO+2`). |
+| `HARNESS_PORT` | `PORT` | `9090` | Port the server listens on. |
+| `HARNESS_TRANSPORT` | `TRANSPORT` | `sse` | MCP transport mode. |
+
+Example `.env`:
+
+```dotenv
+HARNESS_DB_PATH=./harness.db
+HARNESS_LOG_LEVEL=debug
+HARNESS_PORT=9090
+HARNESS_TRANSPORT=sse
+```
+
+### SQLite Tuning
+
+Every connection is opened with:
+
+- `journal_mode(WAL)`: readers and the writer don't block each other.
+- `foreign_keys(1)`: referential integrity is enforced.
+- `busy_timeout(5000)`: waits up to 5s on a lock instead of failing immediately.
+- A single open connection (`SetMaxOpenConns(1)`), which avoids `SQLITE_BUSY` contention between writers.
+
+## Data Model
+
+The schema lives in [`db/migrations`](db/migrations), and the typed queries live in [`db/queries`](db/queries).
+
+```mermaid
+erDiagram
+    dev_logs ||--o{ code_exemplars : "illustrated by"
+    dev_logs ||--|| dev_logs_fts : "indexed in"
+
+    dev_logs {
+        INTEGER id PK
+        TEXT project
+        TEXT service
+        TEXT title
+        TEXT problem
+        TEXT solution
+        TEXT trade_offs
+        TEXT tags
+        TEXT git_ref
+        DATETIME created_at
+    }
+    dev_logs_fts {
+        TEXT title
+        TEXT problem
+        TEXT solution
+        TEXT trade_offs
+        TEXT tags
+    }
+    code_exemplars {
+        INTEGER id PK
+        INTEGER dev_log_id FK
+        TEXT language
+        TEXT topic
+        TEXT title
+        TEXT description
+        TEXT code_snippet
+        TEXT tags
+        DATETIME created_at
+        DATETIME updated_at
+    }
+    architectural_profiles {
+        TEXT project PK
+        TEXT architecture_style
+        TEXT conventions
+        TEXT core_stack
+        TEXT rules
+        DATETIME updated_at
+    }
+    incidents {
+        INTEGER id PK
+        TEXT project
+        TEXT service
+        TEXT title
+        TEXT root_cause
+        TEXT resolution
+        TEXT prevention_rules
+        DATETIME created_at
+    }
+    feature_contexts {
+        INTEGER id PK
+        TEXT project
+        TEXT feature_name
+        TEXT summary
+        TEXT critical_invariants
+        TEXT dependencies
+        DATETIME updated_at
+    }
+```
+
+| Table | Purpose | Notable queries |
+|---|---|---|
+| `dev_logs` | Your daily development stream: problem, solution, trade-offs, and git ref. | CRUD, list by project/service, counts, `SearchDevLogsFTS`, `SearchDevLogsFTSByProject` |
+| `dev_logs_fts` | FTS5 external-content index over `dev_logs`, kept in sync by insert, update, and delete triggers. | Ranked `MATCH` search |
+| `architectural_profiles` | One profile per project: architecture style, plus JSON arrays of conventions, core stack, and strict rules. | `UpsertArchitecturalProfile`, `GetArchitecturalProfileByProject` |
+| `incidents` | Post-mortems: root cause, resolution, and prevention rules. | CRUD, list by project/service, `CountIncidentsByProject` |
+| `feature_contexts` | Per-feature backstory with critical invariants and dependencies (JSON). Unique on `(project, feature_name)`. | `UpsertFeatureContext`, `GetFeatureContextByProjectAndName` |
+| `code_exemplars` | Golden snippets by `language` and `topic`, optionally linked to the dev log they came from (`ON DELETE SET NULL`). | List by language, topic, or dev log |
+
+## Project Structure
+
+```text
+harness/
+├── cmd/
+│   └── main.go                 # Entrypoint: config → logger → DB connection
+├── config/
+│   ├── config.go               # Env/.env configuration loading
+│   └── logger.go               # slog logger factory
+├── db/
+│   ├── db.go                   # SQLite connection (modernc.org/sqlite, pure Go)
+│   ├── migrations/             # Goose SQL migrations (also the sqlc schema source)
+│   └── queries/                # sqlc query definitions
+├── internal/
+│   ├── mcp/                    # MCP server & transports (planned)
+│   ├── repository/             # sqlc-generated data access layer
+│   └── tools/
+│       ├── context/            # Context-retrieval MCP tools (planned)
+│       └── ops/                # Operational MCP tools (planned)
+├── Dockerfile                  # Multi-stage build (golang:alpine → alpine)
+├── docker-compose.yml
+├── Makefile
+├── sqlc.yml
+└── .golangci.yml
+```
+
+## Development
+
+### Make Targets
+
+| Target | Description |
+|---|---|
+| `make run` | Run Harness with `go run`. |
+| `make up` | Apply migrations, then run. |
+| `make test` | Run all tests with the race detector (`go test -race -v ./...`). |
+| `make test-cov` | Run tests with an atomic coverage profile and print a per-function summary. |
+| `make test-cov-html` | Generate `coverage.html`. |
+| `make lint` | Run `golangci-lint`. |
+| `make generate` / `make sqlc-generate` | Regenerate the repository layer with sqlc. |
+| `make goose-install` | Install the pinned Goose CLI (`v3.29.0`, SQLite-only build tags). |
+| `make migrate-create name=<name>` | Create a new SQL migration. |
+| `make migrate-status` / `migrate-up` / `migrate-down` | Manage local migrations. |
+| `make docker-up` / `docker-down` | Start or stop the Compose stack (aliases: `compose-up` / `compose-down`). |
+| `make docker-migrate-status` / `docker-migrate-up` / `docker-migrate-down` | Manage migrations inside the container. |
+
+### Database Migrations
+
+Schema changes are managed with [Goose](https://github.com/pressly/goose) SQL migrations in `db/migrations`.
+
+```sh
+# Create a migration
 make migrate-create name=create_example_table
 ```
 
-Edit the generated migration's `-- +goose Up` section to apply the change and its `-- +goose Down` section to reverse it. Then use:
+Edit the generated file. Put the forward change in the `-- +goose Up` section and its reversal in the `-- +goose Down` section. Multi-statement blocks, such as triggers, must be wrapped in `-- +goose StatementBegin` / `-- +goose StatementEnd`.
 
 ```sh
 make migrate-status
@@ -46,20 +344,66 @@ make migrate-up
 make migrate-down
 ```
 
-Commands use `./harness.db` by default. Override the database path when needed:
+Commands target `./harness.db` by default. You can override this:
 
 ```sh
 make migrate-up DB_PATH=/path/to/harness.db
 ```
 
-For running migrations against the SQLite database inside Docker:
+### Code Generation with sqlc
+
+[sqlc](https://sqlc.dev/) reads the **same** `db/migrations` directory as its schema source (see [`sqlc.yml`](sqlc.yml)) and generates type-safe Go code from `db/queries` into `internal/repository`. The generated code includes a `Querier` interface and JSON tags.
 
 ```sh
-make docker-migrate-status
-make docker-migrate-up
-make docker-migrate-down
+make generate
 ```
 
-`make docker-up` runs `docker-migrate-up` before bringing up the container stack.
+> [!TIP]
+> Goose applies the schema to the database, and sqlc generates Go code from the same SQL. Because both read the same files, the migrations remain the single source of truth.
 
-sqlc reads the same migration directory configured in `sqlc.yml`; Goose applies migrations to the database, while sqlc generates Go code from the schema and query SQL.
+### Testing and Linting
+
+```sh
+make test       # race-enabled unit tests
+make test-cov   # coverage summary
+make lint       # golangci-lint
+```
+
+The linter configuration ([`.golangci.yml`](.golangci.yml)) enables `gosec`, `errorlint`, `noctx`, `sqlclosecheck`, `bodyclose`, `revive`, `misspell`, and `unconvert`, and formats code with `gofmt`.
+
+Before opening a pull request, both of these must pass:
+
+```sh
+golangci-lint run
+go test -race ./...
+```
+
+## Roadmap
+
+- [x] Configuration, logging, and SQLite bootstrap
+- [x] Initial schema with FTS5-indexed dev logs
+- [x] sqlc query definitions for all domains
+- [ ] Generated repository layer and unit tests
+- [ ] MCP server with SSE and stdio transports
+- [ ] Context tools: search dev logs, fetch architectural profile, recall incidents, fetch feature context, fetch code exemplars
+- [ ] Ops tools: schema inspection, test running, failure diagnostics
+- [ ] `/healthz` endpoint and graceful shutdown (SIGTERM)
+- [ ] Client configuration guides (Claude Desktop, Cursor, VS Code, Antigravity, etc.)
+- [ ] Pre-built release binaries and container images
+
+## Contributing
+
+Contributions are welcome. Harness follows a few conventions:
+
+1. **Branch from `main`** using `<type>/<short-description>` (e.g. `feat/mcp-sse-transport`, `fix/fts-trigger`).
+2. **Use [Conventional Commits](https://www.conventionalcommits.org/)**: `<type>(<scope>): <description>`.
+3. **Keep the architecture clean.** Domain logic must have no I/O. Adapters go behind interfaces (ports). Pass `context.Context` as the first argument to all I/O. Wrap errors with context (`fmt.Errorf("...: %w", err)`).
+4. **Change schema only through migrations.** Never edit an applied migration. Add a new one and run `make generate`.
+5. **Pass the quality gates**: `make lint` and `make test`.
+6. **Open a PR** that includes a summary of the changes, any architectural decisions or trade-offs, and verification evidence (commands run and their output). Link the related issue (`Closes #123`).
+
+Found a bug or have an idea? [Open an issue](https://github.com/Ayobami6/harness/issues).
+
+## License
+
+Harness is released under the [MIT License](LICENSE). © 2026 Ayobami Alaran.
