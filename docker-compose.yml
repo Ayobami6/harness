@@ -1,0 +1,28 @@
+services:
+  harness:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: harness
+    restart: always
+    working_dir: /app
+    ports:
+      - "9090:9090"
+    volumes:
+      - .:/app
+      - harness_data:/data
+    command: harness
+    environment:
+      - HARNESS_DB_PATH=/data/harness.db
+      - HARNESS_PORT=9090
+      - HARNESS_TRANSPORT=sse
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  harness_data:
+    name: harness_storage
