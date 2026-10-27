@@ -2,11 +2,16 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"harness/config"
+	"harness/internal/health"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -155,4 +160,108 @@ func TestServer_StartStdio_ClosedPipe(t *testing.T) {
 
 	// ServeStdio should process EOF and return without blocking
 	_ = s.StartStdio()
+}
+
+type testPinger struct {
+	err error
+}
+
+func (p *testPinger) PingContext(ctx context.Context) error {
+	return p.err
+}
+
+func TestServer_WithPinger(t *testing.T) {
+	cfg := config.Config{Port: "8080"}
+	s, err := NewServer(cfg, "pinger-test", "1.0.0")
+	if err != nil {
+		t.Fatalf("unexpected error creating server: %v", err)
+	}
+
+	pinger := &testPinger{}
+	res := s.WithPinger(pinger)
+	if res != s {
+		t.Errorf("expected WithPinger to return server instance")
+	}
+	if s.pinger != pinger {
+		t.Errorf("expected pinger to be set on server")
+	}
+}
+
+func TestServer_Handler_Routes(t *testing.T) {
+	cfg := config.Config{Port: "8080"}
+	pinger := &testPinger{err: nil}
+	s, err := NewServer(cfg, "handler-routes-test", "1.0.0")
+	if err != nil {
+		t.Fatalf("unexpected error creating server: %v", err)
+	}
+	s.WithPinger(pinger)
+
+	handler := s.Handler()
+
+	// 1. Verify /healthz returns 200 OK with expected JSON
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from /healthz, got %d", rec.Code)
+	}
+
+	var healthResp health.Response
+	if err := json.NewDecoder(rec.Body).Decode(&healthResp); err != nil {
+		t.Fatalf("failed to decode /healthz JSON response: %v", err)
+	}
+	if healthResp.Status != "ok" {
+		t.Errorf("expected status 'ok', got %q", healthResp.Status)
+	}
+	if healthResp.Details["database"] != "up" {
+		t.Errorf("expected database 'up', got %q", healthResp.Details["database"])
+	}
+
+	// 2. Verify /mcp route is registered and responds
+	mcpReq := httptest.NewRequest(http.MethodHead, "/mcp", nil)
+	mcpRec := httptest.NewRecorder()
+	handler.ServeHTTP(mcpRec, mcpReq)
+
+	if mcpRec.Code != http.StatusOK {
+		t.Errorf("expected 200 OK from HEAD /mcp, got %d", mcpRec.Code)
+	}
+}
+
+func TestServer_Shutdown(t *testing.T) {
+	t.Run("shutdown with nil httpServer returns nil", func(t *testing.T) {
+		cfg := config.Config{Port: "8080"}
+		s, err := NewServer(cfg, "shutdown-nil-test", "1.0.0")
+		if err != nil {
+			t.Fatalf("unexpected error creating server: %v", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		if err := s.Shutdown(ctx); err != nil {
+			t.Errorf("expected nil error on Shutdown with nil httpServer, got %v", err)
+		}
+	})
+
+	t.Run("shutdown with active httpServer shuts down cleanly", func(t *testing.T) {
+		cfg := config.Config{Port: "8080"}
+		s, err := NewServer(cfg, "shutdown-active-test", "1.0.0")
+		if err != nil {
+			t.Fatalf("unexpected error creating server: %v", err)
+		}
+
+		customServer := &http.Server{Handler: s.Handler()}
+		s.httpServer = server.NewStreamableHTTPServer(
+			s.mcpServer,
+			server.WithStreamableHTTPServer(customServer),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		if err := s.Shutdown(ctx); err != nil {
+			t.Errorf("expected clean shutdown, got %v", err)
+		}
+	})
 }

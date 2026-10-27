@@ -2,7 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"harness/config"
 	"harness/db"
@@ -57,6 +62,7 @@ func main() {
 		logger.Error("Failed to initialize MCP server", "error", err)
 		os.Exit(1)
 	}
+	srv.WithPinger(conn)
 
 	if cfg.Transport == "stdio" {
 		if err := srv.StartStdio(); err != nil {
@@ -64,7 +70,20 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		if err := srv.StartHTTP(cfg.Port); err != nil {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
+		go func() {
+			<-ctx.Done()
+			logger.Info("Shutdown signal received, shutting down gracefully...")
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := srv.Shutdown(shutdownCtx); err != nil {
+				logger.Error("Failed to gracefully shutdown server", "error", err)
+			}
+		}()
+
+		if err := srv.StartHTTP(cfg.Port); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("MCP server failed over http", "error", err)
 			os.Exit(1)
 		}

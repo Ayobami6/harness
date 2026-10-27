@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Standard library HTTP `/healthz` endpoint verifying service liveness and SQLite connectivity (`internal/health`).
+- Graceful HTTP server shutdown handling `SIGINT` and `SIGTERM` signals in `cmd/main.go` and `internal/mcp`.
 - Implemented MCP context tools in `internal/tools/context`:
   - `save_dev_log` (and `create_dev_log` alias) to record development stream items with problems, solutions, trade-offs, and git refs.
   - `get_dev_logs`, `get_dev_logs_by_project`, and `get_dev_logs_by_service` to list development logs with pagination.
