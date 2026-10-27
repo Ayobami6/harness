@@ -142,7 +142,7 @@ flowchart LR
 | sqlc-generated repository layer (`internal/repository`) | 🚧 In progress |
 | MCP server and transports (`internal/mcp`) | 🗓️ Planned |
 | Context and ops tools (`internal/tools`) | 🗓️ Planned |
-| `/healthz` endpoint | 🗓️ Planned |
+| `/healthz` endpoint and graceful shutdown (SIGTERM) | ✅ Implemented |
 
 ## Quick Start
 
@@ -840,7 +840,7 @@ Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml)) opens weekly upd
 - [ ] MCP server with stdio and Streamable HTTP transports
 - [ ] Context tools: search dev logs, fetch architectural profile, recall incidents, fetch feature context, fetch code exemplars
 - [ ] Ops tools: schema inspection, test running, failure diagnostics
-- [ ] `/healthz` endpoint and graceful shutdown (SIGTERM)
+- [x] `/healthz` endpoint and graceful shutdown (SIGTERM)
 - [x] Client configuration guides (Claude Code, Claude Desktop, Antigravity, Gemini CLI, Cursor, VS Code, Windsurf, Codex)
 - [ ] One-command installer (`go install` / Homebrew)
 - [ ] Pre-built release binaries and container images
