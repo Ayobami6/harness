@@ -842,7 +842,7 @@ Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml)) opens weekly upd
 - [ ] Ops tools: schema inspection, test running, failure diagnostics
 - [x] `/healthz` endpoint and graceful shutdown (SIGTERM)
 - [x] Client configuration guides (Claude Code, Claude Desktop, Antigravity, Gemini CLI, Cursor, VS Code, Windsurf, Codex)
-- [ ] One-command installer (`go install` / Homebrew)
+- [] One-command installer (`go install` / Homebrew)
 - [ ] Pre-built release binaries and container images
 
 ## Contributing
