@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"harness/config"
 	"log/slog"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -55,9 +56,14 @@ func (s *Server) StartHTTP(address string) error {
 	if address != "" {
 		port = address
 	}
+	addr := port
+	if !strings.Contains(addr, ":") {
+		addr = ":" + addr
+	}
 	httpServer := server.NewStreamableHTTPServer(s.mcpServer)
-	if err := httpServer.Start(port); err != nil {
-		return fmt.Errorf("failed to start mcp http server on port %s: %w", port, err)
+	s.logger.Info("🚀 Starting MCP Server over HTTP 🚀", "address", addr, "endpoint", "/mcp")
+	if err := httpServer.Start(addr); err != nil {
+		return fmt.Errorf("failed to start mcp http server on %s: %w", addr, err)
 	}
 	return nil
 }

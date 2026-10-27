@@ -15,7 +15,7 @@ services:
     environment:
       - HARNESS_DB_PATH=/data/harness.db
       - HARNESS_PORT=9090
-      - HARNESS_TRANSPORT=sse
+      - HARNESS_TRANSPORT=http
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/healthz || exit 1"]
       interval: 10s

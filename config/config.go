@@ -36,7 +36,7 @@ func Load(filenames ...string) (*Config, error) {
 		DbPath:    getEnv("HARNESS_DB_PATH", getEnv("DB_PATH", "./harness.db")),
 		LogLevel:  logLevel,
 		Port:      getEnv("HARNESS_PORT", getEnv("PORT", "9090")),
-		Transport: getEnv("HARNESS_TRANSPORT", getEnv("TRANSPORT", "sse")),
+		Transport: getEnv("HARNESS_TRANSPORT", getEnv("TRANSPORT", "http")),
 	}
 
 	return cfg, nil

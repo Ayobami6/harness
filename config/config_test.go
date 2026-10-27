@@ -45,8 +45,8 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.Port != "9090" {
 		t.Errorf("expected Port '9090', got %q", cfg.Port)
 	}
-	if cfg.Transport != "sse" {
-		t.Errorf("expected Transport 'sse', got %q", cfg.Transport)
+	if cfg.Transport != "http" {
+		t.Errorf("expected Transport 'http', got %q", cfg.Transport)
 	}
 }
 

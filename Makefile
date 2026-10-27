@@ -79,7 +79,7 @@ docker-migrate-down:
 	$(DOCKER_COMPOSE) run --rm harness goose $(DOCKER_GOOSE_ARGS) down
 
 docker-up:
-# 	$(MAKE) docker-migrate-up
+	$(MAKE) docker-migrate-up
 	$(DOCKER_COMPOSE) up --build
 
 docker-down:
