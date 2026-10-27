@@ -836,9 +836,9 @@ Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml)) opens weekly upd
 - [x] Configuration, logging, and SQLite bootstrap
 - [x] Initial schema with FTS5-indexed dev logs
 - [x] sqlc query definitions for all domains
-- [ ] Generated repository layer and unit tests
-- [ ] MCP server with stdio and Streamable HTTP transports
-- [ ] Context tools: search dev logs, fetch architectural profile, recall incidents, fetch feature context, fetch code exemplars
+- [x] Generated repository layer and unit tests
+- [x] MCP server with stdio and Streamable HTTP transports
+- [x] Context tools: search dev logs, fetch architectural profile, recall incidents, fetch feature context, fetch code exemplars
 - [ ] Ops tools: schema inspection, test running, failure diagnostics
 - [x] `/healthz` endpoint and graceful shutdown (SIGTERM)
 - [x] Client configuration guides (Claude Code, Claude Desktop, Antigravity, Gemini CLI, Cursor, VS Code, Windsurf, Codex)
