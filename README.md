@@ -139,9 +139,9 @@ flowchart LR
 | Initial schema and Goose migrations | ✅ Implemented |
 | sqlc query definitions (dev logs, incidents, profiles, features, exemplars) | ✅ Implemented |
 | Docker / Docker Compose packaging | ✅ Implemented |
-| sqlc-generated repository layer (`internal/repository`) | 🚧 In progress |
-| MCP server and transports (`internal/mcp`) | 🗓️ Planned |
-| Context and ops tools (`internal/tools`) | 🗓️ Planned |
+| sqlc-generated repository layer (`internal/repository`) | ✅ Implemented  |
+| MCP server and transports (`internal/mcp`) | ✅ Implemented  |
+| Context and ops tools (`internal/tools`) | ✅ Implemented |
 | `/healthz` endpoint and graceful shutdown (SIGTERM) | ✅ Implemented |
 
 ## Quick Start
