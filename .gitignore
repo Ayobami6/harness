@@ -4,3 +4,4 @@ bin/
 *.db
 harness.db-shm
 harness.db-wal
+*.DS_Store

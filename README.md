@@ -15,8 +15,10 @@ A lightweight, local-first [Model Context Protocol (MCP)](https://modelcontextpr
 [![MCP](https://img.shields.io/badge/protocol-MCP-6E56CF)](https://modelcontextprotocol.io/)
 [![SQLite](https://img.shields.io/badge/storage-SQLite%20%2B%20FTS5-003B57?logo=sqlite)](https://www.sqlite.org/fts5.html)
 [![Status](https://img.shields.io/badge/status-early%20development-orange)](#project-status)
+[![M8ven Score](https://m8ven.ai/badge/mcp/ayobami6-harness-1qrohj)](https://m8ven.ai/mcp/ayobami6-harness-1qrohj?s=readme)
 
 [Why Harness](#why-harness) •
+[Walkthrough Video](#walkthrough-video) •
 [How It Works](#how-it-works) •
 [Quick Start](#quick-start) •
 [Configuration](#configuration) •
@@ -34,8 +36,21 @@ A lightweight, local-first [Model Context Protocol (MCP)](https://modelcontextpr
 
 Most AI coding assistants start from zero on every prompt. Harness gives them your track record: the problems you've solved, the trade-offs you've accepted, the incidents you've survived, and the code patterns you trust. Your agent then writes software the way you build it.
 
+## Walkthrough Video
+
+<div align="center">
+  <a href="docs/video/harness-walkthrough.mp4">
+    <img src="docs/video/thumbnail.png" alt="Watch the Harness Walkthrough Video (3:18)" width="760" />
+  </a>
+  <p>
+    ▶️ <a href="docs/video/harness-walkthrough.mp4"><strong>Watch the 3-minute narrated walkthrough (MP4)</strong></a>
+    • <a href="docs/video/harness-walkthrough.srt">Subtitles (SRT)</a>
+  </p>
+</div>
+
 ## Table of Contents
 
+- [Walkthrough Video](#walkthrough-video)
 - [Why Harness](#why-harness)
 - [Features](#features)
 - [How It Works](#how-it-works)
