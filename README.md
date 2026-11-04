@@ -220,7 +220,13 @@ Each setting accepts a namespaced `HARNESS_*` variable, which takes precedence, 
 | `HARNESS_DB_PATH` | `DB_PATH` | `./harness.db` | Path to the SQLite database file. |
 | `HARNESS_LOG_LEVEL` | `LOG_LEVEL` | `info` | One of `debug`, `info`, `warn`/`warning`, `error`, or any value `slog.Level` accepts (e.g. `INFO+2`). |
 | `HARNESS_PORT` | `PORT` | `9090` | Port the server listens on. |
-| `HARNESS_TRANSPORT` | `TRANSPORT` | `sse` | MCP transport mode. Planned values are `stdio` and `http` (Streamable HTTP). See [Transports](#transports). |
+| `HARNESS_TRANSPORT` | `TRANSPORT` | `http` | MCP transport mode (`stdio` or `http` Streamable HTTP). See [Transports](#transports). |
+| `HARNESS_WATCH_ENABLED` | `WATCH_ENABLED` | `false` | Enables the background Google ADK git-diff watcher ticker. |
+| `HARNESS_WATCH_INTERVAL` | `WATCH_INTERVAL` | `1m` | Polling interval for checking new git commits/pushes (Go duration string). |
+| `HARNESS_WATCH_REPOS` | `WATCH_REPOS` | `.` | Comma-separated repo targets (`[project:]repo_path[@branch]`). |
+| `HARNESS_WATCH_COMMIT_LIMIT` | `WATCH_COMMIT_LIMIT` | `10` | Max recent commits inspected per tick per repository (clamped to `1..50`). |
+| `HARNESS_WATCH_MODEL` | `WATCH_MODEL` | `gemini-2.5-flash` | Gemini model used by the Google ADK background agent. |
+| `GOOGLE_API_KEY` | `GEMINI_API_KEY` | *(unset)* | API key used by the Google ADK commit recorder when `HARNESS_WATCH_ENABLED=true`. |
 
 Example `.env`:
 

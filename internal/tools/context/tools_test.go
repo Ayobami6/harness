@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS dev_logs (
 CREATE INDEX IF NOT EXISTS idx_dev_logs_project ON dev_logs(project);
 CREATE INDEX IF NOT EXISTS idx_dev_logs_service ON dev_logs(project, service);
 CREATE INDEX IF NOT EXISTS idx_dev_logs_created ON dev_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dev_logs_project_git_ref ON dev_logs(project, git_ref);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS dev_logs_fts USING fts5(
     title,
@@ -693,6 +694,89 @@ func TestHelperFunctions(t *testing.T) {
 		reqSlice := makeCallRequest(map[string]any{"rules": []string{"rule1"}})
 		if parseJSONOrString(reqSlice, "rules", "[]") != `["rule1"]` {
 			t.Errorf("expected JSON array string, got %s", parseJSONOrString(reqSlice, "rules", "[]"))
+		}
+	})
+}
+
+func TestGetDevLogByGitRefTool(t *testing.T) {
+	conn, repo := setupTestDB(t)
+	defer conn.Close()
+
+	mod := New(repo)
+	s := server.NewMCPServer("test-server", "1.0.0")
+	if err := mod.RegisterTools(s); err != nil {
+		t.Fatalf("RegisterTools failed: %v", err)
+	}
+
+	ctx := stdctx.Background()
+	saveHandler := s.GetTool("save_dev_log").Handler
+	getByRefHandler := s.GetTool("get_dev_log_by_git_ref").Handler
+
+	fullSHA := "a24118c9b8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3"
+	shortSHA := "a24118c"
+
+	_, err := saveHandler(ctx, makeCallRequest(map[string]any{
+		"project":  "harness",
+		"service":  "watcher",
+		"title":    "Add git watcher",
+		"problem":  "Missing dev logs on push",
+		"solution": "Background ticker with ADK agent",
+		"git_ref":  fullSHA,
+	}))
+	if err != nil {
+		t.Fatalf("failed to seed dev log: %v", err)
+	}
+
+	t.Run("exact full SHA match", func(t *testing.T) {
+		res, err := getByRefHandler(ctx, makeCallRequest(map[string]any{
+			"project": "harness",
+			"git_ref": fullSHA,
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		got := parseResultJSON[repository.DevLog](t, res)
+		if got.GitRef != fullSHA {
+			t.Errorf("expected git_ref %s, got %s", fullSHA, got.GitRef)
+		}
+	})
+
+	t.Run("short SHA prefix match against full SHA", func(t *testing.T) {
+		res, err := getByRefHandler(ctx, makeCallRequest(map[string]any{
+			"project": "harness",
+			"git_ref": shortSHA,
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		got := parseResultJSON[repository.DevLog](t, res)
+		if got.Title != "Add git watcher" {
+			t.Errorf("expected title 'Add git watcher', got %s", got.Title)
+		}
+	})
+
+	t.Run("not found returns tool error", func(t *testing.T) {
+		res, err := getByRefHandler(ctx, makeCallRequest(map[string]any{
+			"project": "harness",
+			"git_ref": "deadbeef1234567",
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !res.IsError {
+			t.Errorf("expected tool error for missing git_ref")
+		}
+	})
+
+	t.Run("missing required arguments returns tool error", func(t *testing.T) {
+		res, err := getByRefHandler(ctx, makeCallRequest(map[string]any{
+			"project": "harness",
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !res.IsError {
+			t.Errorf("expected tool error for missing git_ref argument")
 		}
 	})
 }

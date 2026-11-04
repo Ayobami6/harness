@@ -12,10 +12,21 @@ services:
       - .:/app
       - harness_data:/data
     command: harness
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - HARNESS_DB_PATH=/data/harness.db
-      - HARNESS_PORT=9090
-      - HARNESS_TRANSPORT=http
+      - HARNESS_DB_PATH=${HARNESS_DB_PATH:-/data/harness.db}
+      - HARNESS_PORT=${HARNESS_PORT:-9090}
+      - HARNESS_LOG_LEVEL=${HARNESS_LOG_LEVEL:-info}
+      - HARNESS_TRANSPORT=${HARNESS_TRANSPORT:-http}
+      - HARNESS_WATCH_ENABLED=${HARNESS_WATCH_ENABLED:-false}
+      - HARNESS_WATCH_INTERVAL=${HARNESS_WATCH_INTERVAL:-1m}
+      - HARNESS_WATCH_REPOS=${HARNESS_WATCH_REPOS:-harness:/app}
+      - HARNESS_WATCH_COMMIT_LIMIT=${HARNESS_WATCH_COMMIT_LIMIT:-10}
+      - HARNESS_WATCH_MODEL=${HARNESS_WATCH_MODEL:-gemini-3.5-flash-lite}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/healthz || exit 1"]
       interval: 10s

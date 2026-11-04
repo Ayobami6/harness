@@ -24,8 +24,10 @@ type Querier interface {
 	DeleteFeatureContext(ctx context.Context, id int64) error
 	DeleteFeatureContextByProjectAndName(ctx context.Context, arg DeleteFeatureContextByProjectAndNameParams) error
 	DeleteIncident(ctx context.Context, id int64) error
+	ExistsDevLogByGitRef(ctx context.Context, arg ExistsDevLogByGitRefParams) (int64, error)
 	GetArchitecturalProfileByProject(ctx context.Context, project string) (ArchitecturalProfile, error)
 	GetCodeExemplarByID(ctx context.Context, id int64) (CodeExemplar, error)
+	GetDevLogByGitRef(ctx context.Context, arg GetDevLogByGitRefParams) (DevLog, error)
 	GetDevLogByID(ctx context.Context, id int64) (DevLog, error)
 	GetFeatureContextByID(ctx context.Context, id int64) (FeatureContext, error)
 	GetFeatureContextByProjectAndName(ctx context.Context, arg GetFeatureContextByProjectAndNameParams) (FeatureContext, error)

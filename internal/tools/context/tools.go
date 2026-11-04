@@ -114,6 +114,14 @@ func (m *Module) RegisterTools(s *server.MCPServer) error {
 			),
 			handler: m.handleSearchDevLogsFTSByProject,
 		},
+		{
+			tool: mcp.NewTool("get_dev_log_by_git_ref",
+				mcp.WithDescription("Retrieve a development log entry for a project matching a full or short git commit SHA / reference"),
+				mcp.WithString("project", mcp.Required(), mcp.Description("Project identifier")),
+				mcp.WithString("git_ref", mcp.Required(), mcp.Description("Git commit SHA (full or >=7 character prefix) or reference")),
+			),
+			handler: m.handleGetDevLogByGitRef,
+		},
 
 		// Incident Tools
 		{
@@ -414,6 +422,34 @@ func (m *Module) handleSearchDevLogsFTSByProject(ctx stdctx.Context, req mcp.Cal
 		rows = []repository.SearchDevLogsFTSByProjectRow{}
 	}
 	return marshalResult(rows)
+}
+
+func (m *Module) handleGetDevLogByGitRef(ctx stdctx.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	project, err := req.RequireString("project")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("missing required argument 'project': %v", err)), nil
+	}
+	gitRef, err := req.RequireString("git_ref")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("missing required argument 'git_ref': %v", err)), nil
+	}
+	gitRef = strings.TrimSpace(gitRef)
+	if gitRef == "" {
+		return mcp.NewToolResultError("missing required argument 'git_ref': cannot be empty"), nil
+	}
+
+	log, err := m.repo.GetDevLogByGitRef(ctx, repository.GetDevLogByGitRefParams{
+		Project: project,
+		GitRef:  gitRef,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return mcp.NewToolResultError(fmt.Sprintf("dev log not found for project %q and git_ref %q", project, gitRef)), nil
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to get dev log by git_ref: %v", err)), nil
+	}
+
+	return marshalResult(log)
 }
 
 func (m *Module) handleCreateIncident(ctx stdctx.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
