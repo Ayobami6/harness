@@ -24,6 +24,9 @@ RUN CGO_ENABLED=0 go install -tags='no_postgres no_mysql no_ydb no_mssql no_clic
 FROM alpine:latest
 WORKDIR /app
 
+# Install git and CA certificates for background git watcher and ADK HTTPS calls
+RUN apk add --no-cache git ca-certificates
+
 # Copy binary and goose from builder
 COPY --from=builder /bin/harness /usr/local/bin/harness
 COPY --from=builder /go/bin/goose /usr/local/bin/goose

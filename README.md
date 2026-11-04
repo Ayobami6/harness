@@ -15,8 +15,10 @@ A lightweight, local-first [Model Context Protocol (MCP)](https://modelcontextpr
 [![MCP](https://img.shields.io/badge/protocol-MCP-6E56CF)](https://modelcontextprotocol.io/)
 [![SQLite](https://img.shields.io/badge/storage-SQLite%20%2B%20FTS5-003B57?logo=sqlite)](https://www.sqlite.org/fts5.html)
 [![Status](https://img.shields.io/badge/status-early%20development-orange)](#project-status)
+[![M8ven Score](https://m8ven.ai/badge/mcp/ayobami6-harness-1qrohj)](https://m8ven.ai/mcp/ayobami6-harness-1qrohj?s=readme)
 
 [Why Harness](#why-harness) •
+[Walkthrough Video](#walkthrough-video) •
 [How It Works](#how-it-works) •
 [Quick Start](#quick-start) •
 [Configuration](#configuration) •
@@ -34,8 +36,21 @@ A lightweight, local-first [Model Context Protocol (MCP)](https://modelcontextpr
 
 Most AI coding assistants start from zero on every prompt. Harness gives them your track record: the problems you've solved, the trade-offs you've accepted, the incidents you've survived, and the code patterns you trust. Your agent then writes software the way you build it.
 
+## Walkthrough Video
+
+<div align="center">
+  <a href="docs/video/harness-walkthrough.mp4">
+    <img src="docs/video/thumbnail.png" alt="Watch the Harness Walkthrough Video (3:18)" width="760" />
+  </a>
+  <p>
+    ▶️ <a href="docs/video/harness-walkthrough.mp4"><strong>Watch the 3-minute narrated walkthrough (MP4)</strong></a>
+    • <a href="docs/video/harness-walkthrough.srt">Subtitles (SRT)</a>
+  </p>
+</div>
+
 ## Table of Contents
 
+- [Walkthrough Video](#walkthrough-video)
 - [Why Harness](#why-harness)
 - [Features](#features)
 - [How It Works](#how-it-works)
@@ -139,9 +154,9 @@ flowchart LR
 | Initial schema and Goose migrations | ✅ Implemented |
 | sqlc query definitions (dev logs, incidents, profiles, features, exemplars) | ✅ Implemented |
 | Docker / Docker Compose packaging | ✅ Implemented |
-| sqlc-generated repository layer (`internal/repository`) | 🚧 In progress |
-| MCP server and transports (`internal/mcp`) | 🗓️ Planned |
-| Context and ops tools (`internal/tools`) | 🗓️ Planned |
+| sqlc-generated repository layer (`internal/repository`) | ✅ Implemented  |
+| MCP server and transports (`internal/mcp`) | ✅ Implemented  |
+| Context and ops tools (`internal/tools`) | ✅ Implemented |
 | `/healthz` endpoint and graceful shutdown (SIGTERM) | ✅ Implemented |
 
 ## Quick Start
@@ -205,7 +220,13 @@ Each setting accepts a namespaced `HARNESS_*` variable, which takes precedence, 
 | `HARNESS_DB_PATH` | `DB_PATH` | `./harness.db` | Path to the SQLite database file. |
 | `HARNESS_LOG_LEVEL` | `LOG_LEVEL` | `info` | One of `debug`, `info`, `warn`/`warning`, `error`, or any value `slog.Level` accepts (e.g. `INFO+2`). |
 | `HARNESS_PORT` | `PORT` | `9090` | Port the server listens on. |
-| `HARNESS_TRANSPORT` | `TRANSPORT` | `sse` | MCP transport mode. Planned values are `stdio` and `http` (Streamable HTTP). See [Transports](#transports). |
+| `HARNESS_TRANSPORT` | `TRANSPORT` | `http` | MCP transport mode (`stdio` or `http` Streamable HTTP). See [Transports](#transports). |
+| `HARNESS_WATCH_ENABLED` | `WATCH_ENABLED` | `false` | Enables the background Google ADK git-diff watcher ticker. |
+| `HARNESS_WATCH_INTERVAL` | `WATCH_INTERVAL` | `1m` | Polling interval for checking new git commits/pushes (Go duration string). |
+| `HARNESS_WATCH_REPOS` | `WATCH_REPOS` | `.` | Comma-separated repo targets (`[project:]repo_path[@branch]`). |
+| `HARNESS_WATCH_COMMIT_LIMIT` | `WATCH_COMMIT_LIMIT` | `10` | Max recent commits inspected per tick per repository (clamped to `1..50`). |
+| `HARNESS_WATCH_MODEL` | `WATCH_MODEL` | `gemini-2.5-flash` | Gemini model used by the Google ADK background agent. |
+| `GOOGLE_API_KEY` | `GEMINI_API_KEY` | *(unset)* | API key used by the Google ADK commit recorder when `HARNESS_WATCH_ENABLED=true`. |
 
 Example `.env`:
 

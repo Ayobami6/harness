@@ -80,7 +80,7 @@ docker-migrate-down:
 
 docker-up:
 	$(MAKE) docker-migrate-up
-	$(DOCKER_COMPOSE) up --build
+	$(DOCKER_COMPOSE) up --build -d
 
 docker-down:
 	$(DOCKER_COMPOSE) down

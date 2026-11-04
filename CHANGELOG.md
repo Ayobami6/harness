@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Embedded background git-diff watcher agent (`internal/watcher`) powered by Google ADK for Go (`google.golang.org/adk/v2`) that periodically polls git repositories with a `time.Ticker`, checks SQLite for unlogged commit SHAs, and automatically synthesizes and records development logs using `llmagent` and `functiontool` tools (`get_commit_diff`, `get_architectural_profile`, `search_dev_logs`, `save_dev_log`).
+- Composite SQLite index `idx_dev_logs_project_git_ref` on `dev_logs(project, git_ref)` and `sqlc` queries `ExistsDevLogByGitRef` and `GetDevLogByGitRef` supporting both full 40-character SHAs and $\ge 7$-character short SHA prefixes.
+- `get_dev_log_by_git_ref` MCP tool in `internal/tools/context` to retrieve development logs by commit SHA or git reference.
 - Standard library HTTP `/healthz` endpoint verifying service liveness and SQLite connectivity (`internal/health`).
 - Graceful HTTP server shutdown handling `SIGINT` and `SIGTERM` signals in `cmd/main.go` and `internal/mcp`.
 - Implemented MCP context tools in `internal/tools/context`:

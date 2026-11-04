@@ -102,3 +102,29 @@ WHERE l.project = sqlc.arg(project)
 ORDER BY fts_rank
 LIMIT sqlc.arg(limit) OFFSET sqlc.arg(offset);
 
+-- name: ExistsDevLogByGitRef :one
+SELECT CAST(EXISTS(
+    SELECT 1 FROM dev_logs
+    WHERE project = sqlc.arg(project)
+      AND git_ref != ''
+      AND (
+          git_ref = sqlc.arg(full_sha)
+          OR git_ref = sqlc.arg(short_sha)
+          OR (LENGTH(git_ref) >= 7 AND sqlc.arg(full_sha) LIKE git_ref || '%')
+          OR (LENGTH(sqlc.arg(full_sha)) >= 7 AND git_ref LIKE sqlc.arg(full_sha) || '%')
+      )
+) AS INTEGER) AS found;
+
+-- name: GetDevLogByGitRef :one
+SELECT * FROM dev_logs
+WHERE project = sqlc.arg(project)
+  AND git_ref != ''
+  AND (
+      git_ref = sqlc.arg(git_ref)
+      OR (LENGTH(git_ref) >= 7 AND sqlc.arg(git_ref) LIKE git_ref || '%')
+      OR (LENGTH(sqlc.arg(git_ref)) >= 7 AND git_ref LIKE sqlc.arg(git_ref) || '%')
+  )
+ORDER BY created_at DESC
+LIMIT 1;
+
+

@@ -104,6 +104,69 @@ func (q *Queries) DeleteDevLog(ctx context.Context, id int64) error {
 	return err
 }
 
+const existsDevLogByGitRef = `-- name: ExistsDevLogByGitRef :one
+SELECT CAST(EXISTS(
+    SELECT 1 FROM dev_logs
+    WHERE project = ?1
+      AND git_ref != ''
+      AND (
+          git_ref = ?2
+          OR git_ref = ?3
+          OR (LENGTH(git_ref) >= 7 AND ?2 LIKE git_ref || '%')
+          OR (LENGTH(?2) >= 7 AND git_ref LIKE ?2 || '%')
+      )
+) AS INTEGER) AS found
+`
+
+type ExistsDevLogByGitRefParams struct {
+	Project  string `json:"project"`
+	FullSha  string `json:"full_sha"`
+	ShortSha string `json:"short_sha"`
+}
+
+func (q *Queries) ExistsDevLogByGitRef(ctx context.Context, arg ExistsDevLogByGitRefParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, existsDevLogByGitRef, arg.Project, arg.FullSha, arg.ShortSha)
+	var found int64
+	err := row.Scan(&found)
+	return found, err
+}
+
+const getDevLogByGitRef = `-- name: GetDevLogByGitRef :one
+SELECT id, project, service, title, problem, solution, trade_offs, tags, git_ref, created_at FROM dev_logs
+WHERE project = ?1
+  AND git_ref != ''
+  AND (
+      git_ref = ?2
+      OR (LENGTH(git_ref) >= 7 AND ?2 LIKE git_ref || '%')
+      OR (LENGTH(?2) >= 7 AND git_ref LIKE ?2 || '%')
+  )
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+type GetDevLogByGitRefParams struct {
+	Project string `json:"project"`
+	GitRef  string `json:"git_ref"`
+}
+
+func (q *Queries) GetDevLogByGitRef(ctx context.Context, arg GetDevLogByGitRefParams) (DevLog, error) {
+	row := q.db.QueryRowContext(ctx, getDevLogByGitRef, arg.Project, arg.GitRef)
+	var i DevLog
+	err := row.Scan(
+		&i.ID,
+		&i.Project,
+		&i.Service,
+		&i.Title,
+		&i.Problem,
+		&i.Solution,
+		&i.TradeOffs,
+		&i.Tags,
+		&i.GitRef,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getDevLogByID = `-- name: GetDevLogByID :one
 SELECT id, project, service, title, problem, solution, trade_offs, tags, git_ref, created_at FROM dev_logs
 WHERE id = ? LIMIT 1
