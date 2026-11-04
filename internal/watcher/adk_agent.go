@@ -43,20 +43,22 @@ Follow this exact workflow:
 
 // ADKRecorderConfig configures the Google ADK commit recorder.
 type ADKRecorderConfig struct {
-	Repo      repository.Querier
-	Git       GitInspector
-	ModelName string
-	APIKey    string
-	Logger    *slog.Logger
+	Repo           repository.Querier
+	Git            GitInspector
+	ModelName      string
+	APIKey         string
+	Logger         *slog.Logger
+	SessionService session.Service
 }
 
 // ADKCommitRecorder implements CommitRecorder using Google ADK for Go (v2).
 type ADKCommitRecorder struct {
-	repo      repository.Querier
-	git       GitInspector
-	modelName string
-	apiKey    string
-	logger    *slog.Logger
+	repo           repository.Querier
+	git            GitInspector
+	modelName      string
+	apiKey         string
+	logger         *slog.Logger
+	sessionService session.Service
 }
 
 // NewADKCommitRecorder creates a new ADKCommitRecorder.
@@ -75,13 +77,18 @@ func NewADKCommitRecorder(cfg ADKRecorderConfig) (*ADKCommitRecorder, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	sessionSvc := cfg.SessionService
+	if sessionSvc == nil {
+		sessionSvc = session.InMemoryService()
+	}
 
 	return &ADKCommitRecorder{
-		repo:      cfg.Repo,
-		git:       cfg.Git,
-		modelName: modelName,
-		apiKey:    strings.TrimSpace(cfg.APIKey),
-		logger:    logger,
+		repo:           cfg.Repo,
+		git:            cfg.Git,
+		modelName:      modelName,
+		apiKey:         strings.TrimSpace(cfg.APIKey),
+		logger:         logger,
+		sessionService: sessionSvc,
 	}, nil
 }
 
@@ -116,8 +123,7 @@ func (r *ADKCommitRecorder) RecordCommit(ctx context.Context, project, repoPath,
 		return nil, fmt.Errorf("failed to create ADK llmagent: %w", err)
 	}
 
-	sessionService := session.InMemoryService()
-	sessResp, err := sessionService.Create(ctx, &session.CreateRequest{
+	sessResp, err := r.sessionService.Create(ctx, &session.CreateRequest{
 		AppName: adkAppName,
 		UserID:  adkUserID,
 	})
@@ -128,7 +134,7 @@ func (r *ADKCommitRecorder) RecordCommit(ctx context.Context, project, repoPath,
 	adkRunner, err := runner.New(runner.Config{
 		AppName:        adkAppName,
 		Agent:          commitAgent,
-		SessionService: sessionService,
+		SessionService: r.sessionService,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ADK runner: %w", err)

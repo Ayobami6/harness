@@ -80,6 +80,11 @@ func (w *Worker) Start(ctx context.Context) {
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
 
+	stopCleanup := context.AfterFunc(ctx, func() {
+		ticker.Stop()
+	})
+	defer stopCleanup()
+
 	w.Reconcile(ctx)
 
 	for {

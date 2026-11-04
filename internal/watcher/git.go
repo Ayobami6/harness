@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	defaultMaxPatchBytes = 24 * 1024 // 24 KiB cap to protect LLM context window
-	defaultFetchTimeout  = 15 * time.Second
+	defaultMaxPatchBytes  = 24 * 1024 // 24 KiB cap to protect LLM context window
+	defaultMaxStderrBytes = 8 * 1024  // 8 KiB cap on stderr to prevent unbounded memory on verbose failures
+	defaultFetchTimeout   = 15 * time.Second
 )
 
 var (
@@ -211,6 +212,33 @@ func refExists(ctx context.Context, repoPath, ref string) bool {
 	return err == nil
 }
 
+// boundedBuffer writes up to limit bytes to prevent unbounded heap growth.
+type boundedBuffer struct {
+	buf   bytes.Buffer
+	limit int
+}
+
+func newBoundedBuffer(limit int) *boundedBuffer {
+	return &boundedBuffer{limit: limit}
+}
+
+func (b *boundedBuffer) Write(p []byte) (n int, err error) {
+	if b.buf.Len() >= b.limit {
+		return len(p), nil
+	}
+	remaining := b.limit - b.buf.Len()
+	if len(p) > remaining {
+		_, _ = b.buf.Write(p[:remaining])
+		_, _ = b.buf.WriteString("... [stderr truncated]")
+		return len(p), nil
+	}
+	return b.buf.Write(p)
+}
+
+func (b *boundedBuffer) String() string {
+	return b.buf.String()
+}
+
 func runGit(ctx context.Context, repoPath string, args ...string) (string, error) {
 	fullArgs := make([]string, 0, len(args)+2)
 	fullArgs = append(fullArgs, "-C", repoPath)
@@ -218,9 +246,10 @@ func runGit(ctx context.Context, repoPath string, args ...string) (string, error
 
 	// #nosec G204 -- git arguments are validated against strict allowlists and fixed subcommands
 	cmd := exec.CommandContext(ctx, "git", fullArgs...)
-	var stdout, stderr bytes.Buffer
+	var stdout bytes.Buffer
+	stderr := newBoundedBuffer(defaultMaxStderrBytes)
 	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	cmd.Stderr = stderr
 
 	if err := cmd.Run(); err != nil {
 		errMsg := strings.TrimSpace(stderr.String())
