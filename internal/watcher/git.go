@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -213,7 +214,10 @@ func refExists(ctx context.Context, repoPath, ref string) bool {
 }
 
 // boundedBuffer writes up to limit bytes to prevent unbounded heap growth.
+// Note: each command execution creates its own dedicated boundedBuffer instance
+// so it is not shared concurrently across commands.
 type boundedBuffer struct {
+	mu    sync.Mutex
 	buf   bytes.Buffer
 	limit int
 }
@@ -223,6 +227,9 @@ func newBoundedBuffer(limit int) *boundedBuffer {
 }
 
 func (b *boundedBuffer) Write(p []byte) (n int, err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if b.buf.Len() >= b.limit {
 		return len(p), nil
 	}
@@ -236,6 +243,8 @@ func (b *boundedBuffer) Write(p []byte) (n int, err error) {
 }
 
 func (b *boundedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.buf.String()
 }
 
