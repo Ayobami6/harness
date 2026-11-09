@@ -4,7 +4,7 @@ go 1.26.10
 
 require (
 	github.com/joho/godotenv v1.5.1
-	github.com/mark3labs/mcp-go v1.4.0
+	github.com/mark3labs/mcp-go v1.5.0
 	google.golang.org/adk/v2 v2.7.0
 	google.golang.org/genai v1.77.0
 	modernc.org/sqlite v1.61.0
