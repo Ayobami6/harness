@@ -7,7 +7,7 @@ require (
 	github.com/mark3labs/mcp-go v1.4.0
 	google.golang.org/adk/v2 v2.7.0
 	google.golang.org/genai v1.77.0
-	modernc.org/sqlite v1.61.0
+	modernc.org/sqlite v1.61.1
 )
 
 require (
