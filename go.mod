@@ -6,7 +6,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/mark3labs/mcp-go v1.4.0
 	google.golang.org/adk/v2 v2.7.0
-	google.golang.org/genai v1.77.0
+	google.golang.org/genai v1.79.1
 	modernc.org/sqlite v1.61.0
 )
 
